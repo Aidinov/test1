@@ -1,0 +1,14 @@
+stages: [test]
+
+backend:
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  script:
+    - dotnet test
+
+frontend:
+  stage: test
+  image: node:20
+  script:
+    - npm ci
+    - npm test

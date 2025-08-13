@@ -1,0 +1,34 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Design Docs API",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/docs": {
+      "get": {
+        "summary": "List documents",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/docs/{id}": {
+      "get": {
+        "summary": "Get document",
+        "parameters": [{ "name": "id", "in": "path", "required": true }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/comments": {
+      "post": {
+        "summary": "Create comment",
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/api/gitlab/webhook": {
+      "post": {
+        "summary": "GitLab webhook",
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}

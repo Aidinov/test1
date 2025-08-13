@@ -1,0 +1,37 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  api:
+    build: ../backend/DesignDocs.Api
+    environment:
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
+      DB_CONNECTION: ${DB_CONNECTION}
+      GIT_LOCAL_CACHE: ${GIT_LOCAL_CACHE}
+    ports:
+      - "8090:8090"
+    volumes:
+      - gitcache:${GIT_LOCAL_CACHE}
+    depends_on:
+      - postgres
+  web:
+    build: ../frontend
+    environment:
+      VITE_API_URL: http://api:8090
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+volumes:
+  pgdata:
+  gitcache:
