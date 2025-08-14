@@ -1,6 +1,6 @@
-using DesignDocs.Api.Data;
 using DesignDocs.Api.Entities;
-using Microsoft.EntityFrameworkCore;
+using DesignDocs.Api.Models;
+using DesignDocs.Api.Repositories;
 
 namespace DesignDocs.Api.Endpoints;
 
@@ -8,37 +8,22 @@ public static class ReviewEndpoints
 {
     public static void MapReviewEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/reviews", async (ReviewStartRequest req, AppDbContext db) =>
+        app.MapPost("/api/reviews", async (ReviewStartRequest req, IReviewRepository repo) =>
         {
-            var doc = await db.Documents.FindAsync(req.DocumentId);
-            if (doc == null) return Results.NotFound();
-            doc.BaseReviewCommit = req.BaseCommit;
-            foreach (var p in req.Participants)
+            var participants = req.Participants.Select(p => new ReviewParticipant
             {
-                doc.Participants.Add(new ReviewParticipant
-                {
-                    DocumentId = doc.Id,
-                    UserId = p.UserId,
-                    Role = p.Role
-                });
-            }
-            await db.SaveChangesAsync();
-            return Results.Ok();
+                DocumentId = req.DocumentId,
+                UserId = p.UserId,
+                Role = p.Role
+            });
+            var ok = await repo.StartReviewAsync(req.DocumentId, req.BaseCommit, participants);
+            return ok ? Results.Ok() : Results.NotFound();
         });
 
-        app.MapGet("/api/reviews/{docId}/summary", async (Guid docId, AppDbContext db) =>
+        app.MapGet("/api/reviews/{docId}/summary", async (Guid docId, IReviewRepository repo) =>
         {
-            var summary = new
-            {
-                Open = await db.Comments.CountAsync(c => c.DocumentId == docId && c.Status == CommentStatus.Open),
-                Blockers = await db.Comments.CountAsync(c => c.DocumentId == docId && c.Severity == CommentSeverity.Blocker),
-                NeedsRecheck = 0,
-                Detached = await db.CommentAnchors.CountAsync(a => a.Comment!.DocumentId == docId && a.IsDetached)
-            };
-            return Results.Ok(summary);
+            var summary = await repo.GetSummaryAsync(docId);
+            return summary == null ? Results.NotFound() : Results.Ok(summary);
         });
     }
 }
-
-public record ReviewStartRequest(Guid DocumentId, string BaseCommit, List<ReviewParticipantDto> Participants);
-public record ReviewParticipantDto(string UserId, ParticipantRole Role);

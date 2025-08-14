@@ -1,5 +1,6 @@
 using DesignDocs.Api.Data;
 using DesignDocs.Api.Endpoints;
+using DesignDocs.Api.Repositories;
 using DesignDocs.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -19,6 +20,9 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(conn));
 builder.Services.AddScoped<GitCliProvider>();
 builder.Services.AddScoped<AnchorService>();
 builder.Services.AddScoped<DiffService>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 
 var app = builder.Build();
 

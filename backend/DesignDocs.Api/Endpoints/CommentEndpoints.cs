@@ -1,6 +1,6 @@
-using DesignDocs.Api.Data;
 using DesignDocs.Api.Entities;
-using Microsoft.EntityFrameworkCore;
+using DesignDocs.Api.Models;
+using DesignDocs.Api.Repositories;
 
 namespace DesignDocs.Api.Endpoints;
 
@@ -8,22 +8,14 @@ public static class CommentEndpoints
 {
     public static void MapCommentEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/docs/{id}/comments", async (Guid id, CommentStatus? status, CommentType? type, CommentSeverity? severity, string? flags, AppDbContext db) =>
+        app.MapGet("/api/docs/{id}/comments", async (Guid id, CommentStatus? status, CommentType? type, CommentSeverity? severity, string? flags, ICommentRepository repo) =>
         {
-            var q = db.Comments.Include(c => c.Anchors).Where(c => c.DocumentId == id);
-            if (status.HasValue) q = q.Where(c => c.Status == status);
-            if (type.HasValue) q = q.Where(c => c.Type == type);
-            if (severity.HasValue) q = q.Where(c => c.Severity == severity);
-            if (!string.IsNullOrEmpty(flags))
-            {
-                var parts = flags.Split(',');
-                if (parts.Contains("detached"))
-                    q = q.Where(c => c.Anchors.Any(a => a.IsDetached));
-            }
-            return Results.Ok(await q.ToListAsync());
+            var detachedOnly = flags?.Split(',').Contains("detached") ?? false;
+            var comments = await repo.GetForDocumentAsync(id, status, type, severity, detachedOnly);
+            return Results.Ok(comments);
         });
 
-        app.MapPost("/api/comments", async (CommentCreateRequest req, AppDbContext db) =>
+        app.MapPost("/api/comments", async (CommentCreateRequest req, ICommentRepository repo) =>
         {
             var comment = new Comment
             {
@@ -48,12 +40,11 @@ public static class CommentEndpoints
                 BlockHash = req.Anchor.BlockHash
             };
             comment.Anchors.Add(anchor);
-            db.Comments.Add(comment);
-            await db.SaveChangesAsync();
+            await repo.AddAsync(comment);
             return Results.Created($"/api/comments/{comment.Id}", comment);
         });
 
-        app.MapPost("/api/comments/{id}/messages", async (Guid id, CommentMessageRequest req, AppDbContext db) =>
+        app.MapPost("/api/comments/{id}/messages", async (Guid id, CommentMessageRequest req, ICommentRepository repo) =>
         {
             var msg = new CommentMessage
             {
@@ -64,27 +55,26 @@ public static class CommentEndpoints
                 ParentMessageId = req.ParentMessageId,
                 CreatedAt = DateTime.UtcNow
             };
-            db.CommentMessages.Add(msg);
-            await db.SaveChangesAsync();
+            await repo.AddMessageAsync(msg);
             return Results.Created($"/api/comments/{id}/messages/{msg.Id}", msg);
         });
 
-        app.MapPost("/api/comments/{id}/resolve", async (Guid id, CommentResolveRequest req, AppDbContext db) =>
+        app.MapPost("/api/comments/{id}/resolve", async (Guid id, CommentResolveRequest req, ICommentRepository repo) =>
         {
-            var comment = await db.Comments.FindAsync(id);
+            var comment = await repo.GetAsync(id);
             if (comment == null) return Results.NotFound();
             comment.Status = CommentStatus.Resolved;
             comment.Resolution = req.Resolution;
             comment.ResolutionNote = req.Note;
             comment.ResolutionCommit = req.Commit;
             comment.ResolvedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
+            await repo.UpdateAsync(comment);
             return Results.Ok(comment);
         });
 
-        app.MapPost("/api/comments/{id}/reanchor", async (Guid id, CommentAnchorRequest req, AppDbContext db) =>
+        app.MapPost("/api/comments/{id}/reanchor", async (Guid id, CommentAnchorRequest req, ICommentRepository repo) =>
         {
-            var anchor = await db.CommentAnchors.FirstOrDefaultAsync(a => a.CommentId == id);
+            var anchor = await repo.GetAnchorAsync(id);
             if (anchor == null) return Results.NotFound();
             anchor.BaseCommit = req.BaseCommit;
             anchor.BlockPath = req.BlockPath;
@@ -95,33 +85,26 @@ public static class CommentEndpoints
             anchor.TextSuffix = req.TextSuffix;
             anchor.BlockHash = req.BlockHash;
             anchor.IsDetached = false;
-            await db.SaveChangesAsync();
+            await repo.UpdateAnchorAsync(anchor);
             return Results.Ok();
         });
 
-        app.MapPatch("/api/comments/{id}", async (Guid id, CommentPatchRequest req, AppDbContext db) =>
+        app.MapPatch("/api/comments/{id}", async (Guid id, CommentPatchRequest req, ICommentRepository repo) =>
         {
-            var comment = await db.Comments.FindAsync(id);
+            var comment = await repo.GetAsync(id);
             if (comment == null) return Results.NotFound();
             if (req.Type.HasValue) comment.Type = req.Type.Value;
             if (req.Severity.HasValue) comment.Severity = req.Severity.Value;
-            await db.SaveChangesAsync();
+            await repo.UpdateAsync(comment);
             return Results.Ok(comment);
         });
 
-        app.MapDelete("/api/comments/{id}", async (Guid id, AppDbContext db) =>
+        app.MapDelete("/api/comments/{id}", async (Guid id, ICommentRepository repo) =>
         {
-            var comment = await db.Comments.FindAsync(id);
+            var comment = await repo.GetAsync(id);
             if (comment == null) return Results.NotFound();
-            db.Comments.Remove(comment);
-            await db.SaveChangesAsync();
+            await repo.DeleteAsync(comment);
             return Results.NoContent();
         });
     }
 }
-
-public record CommentCreateRequest(Guid DocumentId, string AuthorId, CommentType Type, CommentSeverity Severity, CommentAnchorRequest Anchor);
-public record CommentAnchorRequest(string BaseCommit, string BlockPath, int StartOffset, int EndOffset, string TextPrefix, string TextQuote, string TextSuffix, string BlockHash);
-public record CommentMessageRequest(string AuthorId, string Body, Guid? ParentMessageId);
-public record CommentResolveRequest(CommentResolution Resolution, string? Note, string? Commit);
-public record CommentPatchRequest(CommentType? Type, CommentSeverity? Severity);
