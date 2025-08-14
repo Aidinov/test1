@@ -2,3 +2,6 @@ bin/
 obj/
 backend/**/bin/
 backend/**/obj/
+.idea
+*.DotSettings.*
+.env

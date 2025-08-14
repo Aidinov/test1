@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace DesignDocs.Backend.Tests;
+namespace DesignDocs.Tests;
 
 public class PlaceholderTests
 {

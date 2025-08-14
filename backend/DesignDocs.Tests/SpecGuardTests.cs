@@ -1,16 +1,17 @@
-using System.Text.Json;
-using System.Linq;
+using System;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using Xunit;
 
-namespace DesignDocs.Backend.Tests;
+namespace DesignDocs.Tests;
 
 public class SpecGuardTests
 {
     [Fact]
     public void ManifestMatchesTraits()
     {
-        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.."));
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
         var manifestPath = Path.Combine(root, "spec", "spec-manifest.backend.json");
         var manifest = JsonSerializer.Deserialize<string[]>(File.ReadAllText(manifestPath))!
             .ToHashSet();
