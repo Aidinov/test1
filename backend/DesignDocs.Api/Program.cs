@@ -1,5 +1,6 @@
 using DesignDocs.Api.Data;
 using DesignDocs.Api.Endpoints;
+using DesignDocs.Api.Entities;
 using DesignDocs.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
