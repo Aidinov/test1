@@ -7,6 +7,8 @@ Monorepository for a minimal design document service.
 - `frontend/` - React 18 app (Vite)
 - `ops/` - deployment and environment files
 
+Each of the backend and frontend folders contains a `Dockerfile` so the stack can be built and run via `docker compose` without additional setup.
+
 ## Setup
 1. Copy `ops/.env.example` to `.env` and adjust values. In GitLab, open **User Settings → Access Tokens**, create a token with scopes `api`, `read_repository`, and `write_repository`, and set the value in `GITLAB_PERSONAL_TOKEN`.
 2. In the GitLab project, go to **Settings → Webhooks**, add a new webhook pointing to `POST /api/gitlab/webhook`, enable **Push events**, and set the secret token to `GITLAB_WEBHOOK_SECRET`.
