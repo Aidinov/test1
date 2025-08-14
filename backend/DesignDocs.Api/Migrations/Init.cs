@@ -34,6 +34,35 @@ namespace DesignDocs.Api.Migrations
                 {
                     table.PrimaryKey("PK_Documents", x => x.Id);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Documents_Status",
+                table: "Documents",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Documents_Team",
+                table: "Documents",
+                column: "Team");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Documents_UpdatedAt",
+                table: "Documents",
+                column: "UpdatedAt",
+                descending: new[] { true });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Documents_Slug",
+                table: "Documents",
+                column: "Slug",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Documents_Tags",
+                table: "Documents",
+                column: "Tags")
+                .Annotation("Npgsql:IndexMethod", "gin")
+                .Annotation("Npgsql:IndexOperators", new[] { "jsonb_path_ops" });
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

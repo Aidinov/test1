@@ -8,8 +8,8 @@ Monorepository for a minimal design document service.
 - `ops/` - deployment and environment files
 
 ## Setup
-1. Copy `ops/.env.example` to `.env` and adjust values. Obtain a GitLab Personal Access Token (scopes: api, read_repository, write_repository) and set `GITLAB_PERSONAL_TOKEN`.
-2. Configure a GitLab webhook for Push events pointing to `/api/gitlab/webhook` with `GITLAB_WEBHOOK_SECRET`.
+1. Copy `ops/.env.example` to `.env` and adjust values. In GitLab, open **User Settings → Access Tokens**, create a token with scopes `api`, `read_repository`, and `write_repository`, and set the value in `GITLAB_PERSONAL_TOKEN`.
+2. In the GitLab project, go to **Settings → Webhooks**, add a new webhook pointing to `POST /api/gitlab/webhook`, enable **Push events**, and set the secret token to `GITLAB_WEBHOOK_SECRET`.
 3. Ensure a Git repository with markdown docs exists at `GITLAB_PROJECT_HTTP_URL`.
 
 ## Local Run with Docker

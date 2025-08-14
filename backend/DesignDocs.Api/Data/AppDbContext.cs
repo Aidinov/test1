@@ -1,5 +1,6 @@
 using DesignDocs.Api.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace DesignDocs.Api.Data;
 
@@ -23,7 +24,9 @@ public class AppDbContext : DbContext
         {
             e.HasIndex(d => d.Status);
             e.HasIndex(d => d.Team);
-            e.HasIndex(d => d.UpdatedAt);
+            e.HasIndex(d => d.UpdatedAt).HasSortOrder(SortOrder.Descending);
+            e.HasIndex(d => d.Slug).IsUnique();
+            e.HasIndex(d => d.Tags).HasMethod("gin").HasOperators("jsonb_path_ops");
             e.Property(d => d.Tags).HasColumnType("jsonb");
         });
 
