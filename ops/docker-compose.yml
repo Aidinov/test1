@@ -1,41 +1,42 @@
 version: '3.9'
 services:
-  postgres:
+  db:
     image: postgres:15
-    restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: designdocs
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-  api:
+
+  backend:
     build:
-      context: ../backend/DesignDocs.Api
+      context: ../backend
       dockerfile: Dockerfile
     environment:
-      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
-      DB_CONNECTION: ${DB_CONNECTION}
-      GIT_LOCAL_CACHE: ${GIT_LOCAL_CACHE}
+      DATABASE_CONNECTION: "Host=db;Port=5432;Database=designdocs;Username=postgres;Password=postgres"
     ports:
       - "8090:8090"
     volumes:
-      - gitcache:${GIT_LOCAL_CACHE}
+      - ../backend:/src
     depends_on:
-      - postgres
-  web:
+      - db
+
+  frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
     environment:
-      VITE_API_URL: http://api:8090
+      VITE_API_URL: http://localhost:8090
     ports:
       - "5173:5173"
+    volumes:
+      - ../frontend:/app
     depends_on:
-      - api
+      - backend
+
 volumes:
   pgdata:
-  gitcache:
