@@ -2,6 +2,7 @@ using DesignDocService.Dtos;
 using DesignDocService.Mapping;
 using DesignDocService.Models;
 using DesignDocService.Services;
+using ModelComment = DesignDocService.Models.Comment;
 
 namespace DesignDocService.Endpoints
 {
@@ -24,7 +25,7 @@ namespace DesignDocService.Endpoints
                 var comments = await service.GetCommentsAsync(documentId);
                 if (comments == null)
                     return Results.NotFound();
-                var responses = comments.Select(c => c.ToResponse()).ToList();
+                var responses = comments.Select(c => c.ToResponseDto()).ToList();
                 return Results.Ok(responses);
             });
 
@@ -35,7 +36,7 @@ namespace DesignDocService.Endpoints
                 {
                     return Results.BadRequest("Invalid start/end indices.");
                 }
-                var comment = new Comment
+                var comment = new ModelComment
                 {
                     Author = commentDto.Author,
                     StartIndex = commentDto.StartIndex,
@@ -50,19 +51,22 @@ namespace DesignDocService.Endpoints
                 var created = await service.AddCommentAsync(documentId, comment);
                 if (created == null)
                     return Results.NotFound();
-                var response = created.ToResponse();
+                var response = created.ToResponseDto();
                 return Results.Created($"/api/documents/{documentId}/comments/{response.Id}", response);
             });
 
             // Resolve an existing comment
-            group.MapPost("/{commentId:guid}/resolve", async (Guid documentId, Guid commentId, string resolvedBy, DesignDocumentService service) =>
+            // Separate endpoint for resolving
+            app.MapPost("/api/comments/{commentId:guid}/resolve", async (Guid commentId, ResolveRequest req, DesignDocumentService service) =>
             {
-                var resolved = await service.ResolveCommentAsync(documentId, commentId, resolvedBy);
+                var resolved = await service.ResolveCommentAsync(commentId, req.ResolvedBy);
                 if (resolved == null)
                     return Results.NotFound();
-                var response = resolved.ToResponse();
+                var response = resolved.ToResponseDto();
                 return Results.Ok(response);
             });
         }
     }
+
+    public record ResolveRequest(string ResolvedBy);
 }

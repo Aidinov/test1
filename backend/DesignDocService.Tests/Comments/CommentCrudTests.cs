@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using DesignDocService.Dtos;
 using DesignDocService.Models;
+using CommentDto = DesignDocService.Dtos.CommentResponse;
 using DesignDocService.Tests.Infrastructure;
 using Xunit;
 
@@ -25,14 +26,14 @@ namespace DesignDocService.Tests.Comments
                 author = "Eve",
                 taskLink = "",
                 content = "# Doc4",
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = "/tmp/repo4",
                 gitFilePath = "doc4.md",
                 gitCommitHash = "c1"
             };
             var createRes = await _client.PostAsJsonAsync("/api/documents", docDto);
             createRes.EnsureSuccessStatusCode();
-            var doc = await createRes.Content.ReadFromJsonAsync<DesignDocumentResponse>();
+            var doc = await createRes.Content.ReadFromJsonAsync<DocumentSummary>();
             Assert.NotNull(doc);
 
             // Add comment
@@ -47,14 +48,14 @@ namespace DesignDocService.Tests.Comments
             };
             var addRes = await _client.PostAsJsonAsync($"/api/documents/{doc!.Id}/comments", commentRequest);
             addRes.EnsureSuccessStatusCode();
-            var createdComment = await addRes.Content.ReadFromJsonAsync<CommentResponse>();
+            var createdComment = await addRes.Content.ReadFromJsonAsync<CommentDto>();
             Assert.NotNull(createdComment);
             Assert.Equal(commentRequest.Content, createdComment!.Content);
             Assert.Equal(doc.GitCommitHash, createdComment.DocumentVersion);
 
             // Update document commit hash
             // Update commit hash to c2 without changing content
-            var updateRequest = new UpdateDesignDocumentRequest
+            var updateRequest = new UpdateDocumentRequest
             {
                 Title = doc.Title,
                 Product = doc.Product,
@@ -82,12 +83,12 @@ namespace DesignDocService.Tests.Comments
             };
             var addRes2 = await _client.PostAsJsonAsync($"/api/documents/{doc!.Id}/comments", commentRequest2);
             addRes2.EnsureSuccessStatusCode();
-            var created2 = await addRes2.Content.ReadFromJsonAsync<CommentResponse>();
+            var created2 = await addRes2.Content.ReadFromJsonAsync<CommentDto>();
             Assert.NotNull(created2);
             Assert.Equal("c2", created2!.DocumentVersion);
 
             // Fetch comments and verify count
-            var comments = await _client.GetFromJsonAsync<List<CommentResponse>>($"/api/documents/{doc.Id}/comments");
+            var comments = await _client.GetFromJsonAsync<List<CommentDto>>($"/api/documents/{doc.Id}/comments");
             Assert.NotNull(comments);
             Assert.Equal(2, comments!.Count);
         }
@@ -107,14 +108,14 @@ namespace DesignDocService.Tests.Comments
                 author = "Tester",
                 taskLink = "",
                 content = initialContent,
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = repoPath,
                 gitFilePath = "c.md",
                 gitCommitHash = "c1"
             };
             var createRes = await _client.PostAsJsonAsync("/api/documents", docDto);
             createRes.EnsureSuccessStatusCode();
-            var created = await createRes.Content.ReadFromJsonAsync<DesignDocumentResponse>();
+            var created = await createRes.Content.ReadFromJsonAsync<DocumentSummary>();
             Assert.NotNull(created);
 
             // Add a comment on "text"
@@ -131,14 +132,14 @@ namespace DesignDocService.Tests.Comments
             };
             var addRes = await _client.PostAsJsonAsync($"/api/documents/{created!.Id}/comments", commentRequest);
             addRes.EnsureSuccessStatusCode();
-            var comment = await addRes.Content.ReadFromJsonAsync<CommentResponse>();
+            var comment = await addRes.Content.ReadFromJsonAsync<CommentDto>();
             Assert.NotNull(comment);
             Assert.Equal("text", comment!.OriginalText);
             Assert.Equal("c1", comment.DocumentVersion);
 
             // Update document content; remove the commented word
             var newContent = initialContent.Replace("text", "word");
-            var updateReq = new UpdateDesignDocumentRequest
+            var updateReq = new UpdateDocumentRequest
             {
                 Title = created.Title,
                 Product = created.Product,
@@ -155,7 +156,7 @@ namespace DesignDocService.Tests.Comments
             updateRes.EnsureSuccessStatusCode();
 
             // Fetch comments again; original comment should still be present with original text
-            var comments = await _client.GetFromJsonAsync<List<CommentResponse>>($"/api/documents/{created!.Id}/comments");
+            var comments = await _client.GetFromJsonAsync<List<CommentDto>>($"/api/documents/{created!.Id}/comments");
             Assert.NotNull(comments);
             var fetched = comments!.FirstOrDefault(c => c.Id == comment!.Id);
             Assert.NotNull(fetched);
@@ -175,14 +176,14 @@ namespace DesignDocService.Tests.Comments
                 author = "Frank",
                 taskLink = "",
                 content = "# Doc5",
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = "/tmp/repo5",
                 gitFilePath = "doc5.md",
                 gitCommitHash = "c1"
             };
             var createRes = await _client.PostAsJsonAsync("/api/documents", docDto);
             createRes.EnsureSuccessStatusCode();
-            var doc = await createRes.Content.ReadFromJsonAsync<DesignDocumentResponse>();
+            var doc = await createRes.Content.ReadFromJsonAsync<DocumentSummary>();
             Assert.NotNull(doc);
 
             // Add comment
@@ -197,19 +198,19 @@ namespace DesignDocService.Tests.Comments
             };
             var addRes = await _client.PostAsJsonAsync($"/api/documents/{doc!.Id}/comments", commentRequest);
             addRes.EnsureSuccessStatusCode();
-            var comment = await addRes.Content.ReadFromJsonAsync<CommentResponse>();
+            var comment = await addRes.Content.ReadFromJsonAsync<CommentDto>();
             Assert.NotNull(comment);
 
             // Resolve
-            var resolveRes = await _client.PostAsync($"/api/documents/{doc.Id}/comments/{comment!.Id}/resolve?resolvedBy=Reviewer2", null);
+            var resolveRes = await _client.PostAsJsonAsync($"/api/comments/{comment!.Id}/resolve", new { resolvedBy = "Reviewer2" });
             resolveRes.EnsureSuccessStatusCode();
-            var resolved = await resolveRes.Content.ReadFromJsonAsync<CommentResponse>();
+            var resolved = await resolveRes.Content.ReadFromJsonAsync<CommentDto>();
             Assert.NotNull(resolved);
             Assert.True(resolved!.IsResolved);
             Assert.Equal("Reviewer2", resolved.ResolvedBy);
 
             // Fetch comment and verify resolved
-            var fetchedComments = await _client.GetFromJsonAsync<List<CommentResponse>>($"/api/documents/{doc!.Id}/comments");
+            var fetchedComments = await _client.GetFromJsonAsync<List<CommentDto>>($"/api/documents/{doc!.Id}/comments");
             Assert.NotNull(fetchedComments);
             var updatedComment = fetchedComments!.FirstOrDefault(c => c.Id == comment!.Id);
             Assert.NotNull(updatedComment);
@@ -227,14 +228,14 @@ namespace DesignDocService.Tests.Comments
                 author = "George",
                 taskLink = "",
                 content = "# Doc6",
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = "/tmp/repo6",
                 gitFilePath = "doc6.md",
                 gitCommitHash = "c1"
             };
             var createRes = await _client.PostAsJsonAsync("/api/documents", docDto);
             createRes.EnsureSuccessStatusCode();
-            var doc = await createRes.Content.ReadFromJsonAsync<DesignDocumentResponse>();
+            var doc = await createRes.Content.ReadFromJsonAsync<DocumentSummary>();
 
             var invalidComment = new CommentRequest
             {
