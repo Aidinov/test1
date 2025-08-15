@@ -3,14 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import http from '../lib/http';
 import { DEFAULT_IFRAME_WHITELIST } from '../lib/markdown';
 import { getDocument, updateDocument } from '../api/documents';
-import { addComment as apiAddComment, listComments } from '../api/comments';
+import { addComment as apiAddComment, listComments, resolveComment as apiResolve } from '../api/comments';
 import {
   DocumentDetails,
   DocumentStatus,
   UpdateDocumentRequest,
   CommentType,
   RemarkSeverity,
-  Comment,
+  CommentResponse,
 } from '../types';
 import {
   Box,
@@ -34,6 +34,8 @@ import { useSnackbar } from 'notistack';
 import CommentDialog from '../ui/CommentDialog';
 import SeverityChip from '../ui/SeverityChip';
 import StatusChip from '../ui/StatusChip';
+import CommentsPanel from '../ui/CommentsPanel';
+import { useUserRole } from '../lib/UserRoleContext';
 import { selectionToOffsets } from '../utils/selectionToOffsets';
 
 interface OptionList {
@@ -54,9 +56,11 @@ export default function EditDocument() {
     useState<{ start: number; end: number } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [hovered, setHovered] = useState<Comment | null>(null);
+  const [hovered, setHovered] = useState<CommentResponse | null>(null);
   const theme = useTheme();
   const contentRef = useRef<HTMLDivElement>(null);
+  const role = useUserRole();
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -187,7 +191,7 @@ export default function EditDocument() {
     return <pre>{elements}</pre>;
   }
 
-  function highlightColor(comment: Comment) {
+  function highlightColor(comment: CommentResponse) {
     const base = comment.isResolved
       ? theme.palette.success.light
       : comment.type === CommentType.Question
@@ -222,6 +226,42 @@ export default function EditDocument() {
     } catch {
       enqueueSnackbar('Failed to add comment', { variant: 'error' });
     }
+  };
+
+  const resolveComment = async (comment: CommentResponse) => {
+    try {
+      await apiResolve(comment.id, role);
+      const updated = await listComments(doc.id);
+      setDoc({ ...doc, comments: updated });
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        enqueueSnackbar('Not allowed to resolve', { variant: 'error' });
+      } else {
+        enqueueSnackbar('Failed to resolve comment', { variant: 'error' });
+      }
+    }
+  };
+
+  const addReply = (commentId: string, content: string) => {
+    setDoc({
+      ...doc,
+      comments: doc.comments.map((c) =>
+        c.id === commentId
+          ? {
+              ...c,
+              replies: [
+                ...c.replies,
+                {
+                  id: Math.random().toString(),
+                  author: role,
+                  content,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+            }
+          : c,
+      ),
+    });
   };
 
   return (
@@ -343,6 +383,7 @@ export default function EditDocument() {
         </FormRow>
         <Box sx={{ mb: 2 }}>
           <Typography variant="h6">Preview</Typography>
+          <Button onClick={() => setPanelOpen(true)}>Comments</Button>
           <IframeWhitelistNotice hosts={DEFAULT_IFRAME_WHITELIST} />
           <Box
             ref={contentRef}
@@ -399,6 +440,15 @@ export default function EditDocument() {
           <Button onClick={() => navigate(`/documents/${doc.id}`)}>View</Button>
         </Box>
       </Box>
+      <CommentsPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        comments={doc.comments}
+        documentContent={doc.content}
+        documentVersion={doc.gitCommitHash}
+        onReply={addReply}
+        onResolve={resolveComment}
+      />
     </Box>
   );
 }

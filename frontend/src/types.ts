@@ -32,7 +32,7 @@ export interface DocumentSummary {
 
 export interface DocumentDetails extends DocumentSummary {
   content: string;
-  comments: Comment[];
+  comments: CommentResponse[];
 }
 
 export interface CreateDocumentRequest {
@@ -98,3 +98,5 @@ export interface CommentReply {
 export interface CommentResponse extends Comment {
   replies: CommentReply[];
 }
+
+export type UserRole = 'Author' | 'Reviewer' | 'Approver';

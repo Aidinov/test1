@@ -1,35 +1,22 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { getDocument } from '../api/documents';
-import {
-  addComment as apiAddComment,
-  listComments,
-  resolveComment as apiResolve,
-} from '../api/comments';
-import {
-  RemarkSeverity,
-  CommentType,
-  Comment,
-  DocumentDetails,
-} from '../types';
-import {
-  Box,
-  Popover,
-  SpeedDial,
-  SpeedDialAction,
-  Typography,
-} from '@mui/material';
+import { addComment as apiAddComment, listComments, resolveComment as apiResolve } from '../api/comments';
+import { RemarkSeverity, CommentType, CommentResponse, DocumentDetails } from '../types';
+import { Box, Popover, SpeedDial, SpeedDialAction, Typography, Button } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
 import AddCommentIcon from '@mui/icons-material/AddComment';
 import { useSnackbar } from 'notistack';
 import SeverityChip from '../ui/SeverityChip';
 import StatusChip from '../ui/StatusChip';
 import CommentDialog from '../ui/CommentDialog';
+import CommentsPanel from '../ui/CommentsPanel';
+import { useUserRole } from '../lib/UserRoleContext';
 import { selectionToOffsets } from '../utils/selectionToOffsets';
 
 interface ViewState {
   doc: DocumentDetails | null;
-  comments: Comment[];
+  comments: CommentResponse[];
 }
 
 export default function ViewDocument() {
@@ -41,9 +28,11 @@ export default function ViewDocument() {
     useState<{ start: number; end: number } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [hovered, setHovered] = useState<Comment | null>(null);
+  const [hovered, setHovered] = useState<CommentResponse | null>(null);
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
+  const role = useUserRole();
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -135,7 +124,7 @@ export default function ViewDocument() {
     return <pre>{elements}</pre>;
   }
 
-  function highlightColor(comment: Comment) {
+  function highlightColor(comment: CommentResponse) {
     const base = comment.isResolved
       ? theme.palette.success.light
       : comment.type === CommentType.Question
@@ -172,15 +161,40 @@ export default function ViewDocument() {
     }
   };
 
-  const resolveComment = async (comment: Comment) => {
-    if (!id) return;
+  const resolveComment = async (comment: CommentResponse) => {
     try {
-      await apiResolve(id, comment.id, 'Reviewer');
-      const res = await listComments(id);
+      await apiResolve(comment.id, role);
+      const res = await listComments(id!);
       setState((prev) => ({ ...prev, comments: res }));
-    } catch (err) {
-      alert('Failed to resolve comment');
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        enqueueSnackbar('Not allowed to resolve', { variant: 'error' });
+      } else {
+        enqueueSnackbar('Failed to resolve comment', { variant: 'error' });
+      }
     }
+  };
+
+  const addReply = (commentId: string, content: string) => {
+    setState((prev) => ({
+      ...prev,
+      comments: prev.comments.map((c) =>
+        c.id === commentId
+          ? {
+              ...c,
+              replies: [
+                ...c.replies,
+                {
+                  id: Math.random().toString(),
+                  author: role,
+                  content,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+            }
+          : c,
+      ),
+    }));
   };
 
   if (loading) return <div>Loading...</div>;
@@ -190,6 +204,7 @@ export default function ViewDocument() {
     <div style={{ display: 'flex', gap: '1rem' }}>
       <div style={{ flex: 1 }}>
         <h2>{state.doc.title}</h2>
+        <Button onClick={() => setPanelOpen(true)}>Comments</Button>
         <Box
           ref={contentRef}
           onMouseUp={handleMouseUp}
@@ -233,34 +248,15 @@ export default function ViewDocument() {
             </Box>
           )}
         </Popover>
-      </div>
-      <div className="comment-panel">
-        <h3>Comments</h3>
-        {state.comments.length === 0 && <p>No comments yet.</p>}
-        {state.comments.map((c) => (
-          <div
-            key={c.id}
-            id={`comment-${c.id}`}
-            className={`comment ${c.isResolved ? 'resolved' : ''}`}
-          >
-            <p>
-              <strong>{c.type === CommentType.Question ? 'Question' : 'Remark'}</strong>
-              {c.type === CommentType.Remark && ` • ${c.severity}`}
-            </p>
-            <p>{c.content}</p>
-            <p style={{ fontSize: '0.8rem', color: '#666' }}>By {c.author}</p>
-            {!c.isResolved && (
-              <button className="button" onClick={() => resolveComment(c)}>
-                Resolve
-              </button>
-            )}
-            {c.isResolved && (
-              <p style={{ fontSize: '0.8rem', color: '#666' }}>
-                Resolved by {c.resolvedBy}
-              </p>
-            )}
-          </div>
-        ))}
+        <CommentsPanel
+          open={panelOpen}
+          onClose={() => setPanelOpen(false)}
+          comments={state.comments}
+          documentContent={state.doc.content}
+          documentVersion={state.doc.gitCommitHash}
+          onReply={addReply}
+          onResolve={resolveComment}
+        />
       </div>
     </div>
   );

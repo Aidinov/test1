@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using DesignDocService.Dtos;
 using DesignDocService.Models;
-using CommentDto = DesignDocService.Dtos.Comment;
+using CommentDto = DesignDocService.Dtos.CommentResponse;
 using DesignDocService.Tests.Infrastructure;
 using Xunit;
 
@@ -202,7 +202,7 @@ namespace DesignDocService.Tests.Comments
             Assert.NotNull(comment);
 
             // Resolve
-            var resolveRes = await _client.PostAsync($"/api/documents/{doc.Id}/comments/{comment!.Id}/resolve?resolvedBy=Reviewer2", null);
+            var resolveRes = await _client.PostAsJsonAsync($"/api/comments/{comment!.Id}/resolve", new { resolvedBy = "Reviewer2" });
             resolveRes.EnsureSuccessStatusCode();
             var resolved = await resolveRes.Content.ReadFromJsonAsync<CommentDto>();
             Assert.NotNull(resolved);

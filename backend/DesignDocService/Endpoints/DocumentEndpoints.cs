@@ -41,7 +41,7 @@ namespace DesignDocService.Endpoints
                     return Results.NotFound();
                 // Load content from Git
                 var content = await gitService.ReadFileAsync(doc.GitRepository, doc.GitFilePath, doc.GitCommitHash);
-                var commentsDto = doc.Comments?.Select(c => c.ToDto());
+                var commentsDto = doc.Comments?.Select(c => c.ToResponseDto());
                 var details = doc.ToDetails(content, commentsDto);
                 return Results.Ok(details);
             });

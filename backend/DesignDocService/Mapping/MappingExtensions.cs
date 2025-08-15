@@ -1,6 +1,7 @@
+using System.Collections.Generic;
 using DesignDocService.Dtos;
 using DesignDocService.Models;
-using DtoComment = DesignDocService.Dtos.Comment;
+using CommentResponse = DesignDocService.Dtos.CommentResponse;
 using ModelComment = DesignDocService.Models.Comment;
 
 namespace DesignDocService.Mapping
@@ -36,7 +37,7 @@ namespace DesignDocService.Mapping
         /// <summary>
         /// Converts a <see cref="DesignDocument"/> entity to a <see cref="DocumentDetails"/>.
         /// </summary>
-        public static DocumentDetails ToDetails(this DesignDocument entity, string? content = null, IEnumerable<DtoComment>? comments = null)
+        public static DocumentDetails ToDetails(this DesignDocument entity, string? content = null, IEnumerable<CommentResponse>? comments = null)
         {
             return new DocumentDetails
             {
@@ -60,9 +61,9 @@ namespace DesignDocService.Mapping
         /// <summary>
         /// Converts a <see cref="ModelComment"/> entity to a <see cref="DtoComment"/> DTO.
         /// </summary>
-        public static DtoComment ToDto(this ModelComment comment)
+        public static CommentResponse ToResponseDto(this ModelComment comment)
         {
-            return new DtoComment
+            return new CommentResponse
             {
                 Id = comment.Id,
                 DocumentId = comment.DocumentId,
@@ -78,16 +79,14 @@ namespace DesignDocService.Mapping
                 ResolvedBy = comment.ResolvedBy,
                 ResolvedAt = comment.ResolvedAt,
                 DocumentVersion = comment.DocumentVersion,
-                OriginalText = comment.OriginalText
+                OriginalText = comment.OriginalText,
+                Replies = new List<CommentReply>()
             };
         }
 
-        /// <summary>
-        /// Converts a collection of <see cref="Models.Comment"/> entities to DTOs.
-        /// </summary>
-        public static IEnumerable<DtoComment> ToDto(this IEnumerable<ModelComment> comments)
+        public static IEnumerable<CommentResponse> ToResponseDto(this IEnumerable<ModelComment> comments)
         {
-            return comments.Select(c => c.ToDto());
+            return comments.Select(c => c.ToResponseDto());
         }
 
         /// <summary>

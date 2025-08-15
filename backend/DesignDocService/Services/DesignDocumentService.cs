@@ -190,10 +190,9 @@ namespace DesignDocService.Services
         /// <summary>
         /// Marks a comment as resolved.
         /// </summary>
-        public async Task<Comment?> ResolveCommentAsync(Guid documentId, Guid commentId, string resolvedBy)
+        public async Task<Comment?> ResolveCommentAsync(Guid commentId, string resolvedBy)
         {
-            var comment = await context.Comments
-                .FirstOrDefaultAsync(c => c.DocumentId == documentId && c.Id == commentId);
+            var comment = await context.Comments.FindAsync(commentId);
             if (comment == null) return null;
             if (!comment.IsResolved)
             {
@@ -201,7 +200,7 @@ namespace DesignDocService.Services
                 comment.ResolvedBy = resolvedBy;
                 comment.ResolvedAt = DateTime.UtcNow;
                 comment.UpdatedAt = DateTime.UtcNow;
-                var doc = await context.DesignDocuments.FindAsync(documentId);
+                var doc = await context.DesignDocuments.FindAsync(comment.DocumentId);
                 if (doc != null)
                 {
                     doc.UpdatedAt = DateTime.UtcNow;

@@ -1,21 +1,35 @@
 import http from '../lib/http';
-import { Comment, CommentRequest } from '../types';
+import { CommentResponse, CommentRequest, CommentReply } from '../types';
 
-export async function listComments(documentId: string): Promise<Comment[]> {
-  const res = await http.get<Comment[]>(`/documents/${documentId}/comments`);
+export async function listComments(documentId: string): Promise<CommentResponse[]> {
+  const res = await http.get<CommentResponse[]>(`/documents/${documentId}/comments`);
   return res.data;
 }
 
-export async function addComment(documentId: string, req: CommentRequest): Promise<Comment> {
-  const res = await http.post<Comment>(`/documents/${documentId}/comments`, req);
+export async function addComment(
+  documentId: string,
+  req: CommentRequest,
+): Promise<CommentResponse> {
+  const res = await http.post<CommentResponse>(`/documents/${documentId}/comments`, req);
   return res.data;
 }
 
-export async function resolveComment(documentId: string, commentId: string, resolvedBy: string): Promise<Comment> {
-  const res = await http.post<Comment>(
-    `/documents/${documentId}/comments/${commentId}/resolve`,
-    null,
-    { params: { resolvedBy } }
-  );
+export async function resolveComment(commentId: string, resolvedBy: string): Promise<CommentResponse> {
+  const res = await http.post<CommentResponse>(`/comments/${commentId}/resolve`, {
+    resolvedBy,
+  });
+  return res.data;
+}
+
+export async function addReply(
+  commentId: string,
+  content: string,
+  author: string,
+): Promise<CommentReply> {
+  // Stubbed API; backend may implement this endpoint later
+  const res = await http.post<CommentReply>(`/comments/${commentId}/replies`, {
+    content,
+    author,
+  });
   return res.data;
 }

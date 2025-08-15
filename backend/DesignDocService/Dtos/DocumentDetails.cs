@@ -16,6 +16,6 @@ namespace DesignDocService.Dtos
         /// <summary>
         /// Comments associated with the document.
         /// </summary>
-        public List<Comment>? Comments { get; set; }
+        public List<CommentResponse>? Comments { get; set; }
     }
 }

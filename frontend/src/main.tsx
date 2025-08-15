@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
 import App from './App';
 import { theme } from './theme/theme';
+import { UserRoleProvider } from './lib/UserRoleContext';
 
 // Import base styles if needed
 import './styles.css';
@@ -18,9 +19,11 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <SnackbarProvider maxSnack={3} autoHideDuration={3000}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <UserRoleProvider role="Reviewer">
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </UserRoleProvider>
         </SnackbarProvider>
       </QueryClientProvider>
     </ThemeProvider>
