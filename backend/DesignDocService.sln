@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33621.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesignDocService", "DesignDocService/DesignDocService.csproj", "{5B36E420-24FE-4A4B-90E4-6B6403822C16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesignDocService.Tests", "DesignDocService.Tests/DesignDocService.Tests.csproj", "{96234cc6-b1c2-4f75-8a21-9adc1a7f3049}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {5B36E420-24FE-4A4B-90E4-6B6403822C16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5B36E420-24FE-4A4B-90E4-6B6403822C16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5B36E420-24FE-4A4B-90E4-6B6403822C16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5B36E420-24FE-4A4B-90E4-6B6403822C16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{96234cc6-b1c2-4f75-8a21-9adc1a7f3049}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96234cc6-b1c2-4f75-8a21-9adc1a7f3049}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96234cc6-b1c2-4f75-8a21-9adc1a7f3049}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96234cc6-b1c2-4f75-8a21-9adc1a7f3049}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+EndGlobal
