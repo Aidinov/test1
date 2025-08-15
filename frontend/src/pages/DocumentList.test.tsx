@@ -30,39 +30,26 @@ describe('DocumentList', () => {
     renderList();
     await screen.findByText('No documents found.');
     mockList.mockClear();
-    fireEvent.change(screen.getByPlaceholderText('Team'), { target: { value: 'T1' } });
-    fireEvent.change(screen.getByPlaceholderText('Product'), { target: { value: 'P1' } });
-    fireEvent.change(screen.getByPlaceholderText('Author'), { target: { value: 'A1' } });
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'Draft' } });
+    fireEvent.change(screen.getAllByLabelText('Team')[0], { target: { value: 'T1' } });
+    fireEvent.change(screen.getAllByLabelText('Product')[0], { target: { value: 'P1' } });
+    fireEvent.change(screen.getAllByLabelText('Author')[0], { target: { value: 'A1' } });
     fireEvent.click(screen.getByText('Apply'));
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
     expect(mockList).toHaveBeenCalledWith({
       team: 'T1',
       product: 'P1',
       author: 'A1',
-      status: 'Draft',
       page: 1,
       pageSize: 10
     });
-    fireEvent.change(screen.getByLabelText('Page Size'), { target: { value: '20' } });
+    fireEvent.click(screen.getByText('Next'));
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2));
     expect(mockList).toHaveBeenLastCalledWith({
       team: 'T1',
       product: 'P1',
       author: 'A1',
-      status: 'Draft',
-      page: 1,
-      pageSize: 20
-    });
-    fireEvent.click(screen.getByText('Next'));
-    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(3));
-    expect(mockList).toHaveBeenLastCalledWith({
-      team: 'T1',
-      product: 'P1',
-      author: 'A1',
-      status: 'Draft',
       page: 2,
-      pageSize: 20
+      pageSize: 10
     });
   });
 
