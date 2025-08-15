@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
-import { DesignDocument } from './DocumentList';
+import http from '../lib/http';
+import { getDocument, updateDocument } from '../api/documents';
+import { DocumentDetails } from '../types';
 
 interface OptionList {
   products: string[];
@@ -11,7 +12,7 @@ interface OptionList {
 export default function EditDocument() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [doc, setDoc] = useState<DesignDocument | null>(null);
+  const [doc, setDoc] = useState<DocumentDetails | null>(null);
   const [options, setOptions] = useState<OptionList>({ products: [], teams: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,11 +21,11 @@ export default function EditDocument() {
     async function load() {
       try {
         const [docRes, productsRes, teamsRes] = await Promise.all([
-          axios.get<DesignDocument>(`/api/documents/${id}`),
-          axios.get<string[]>('/api/products'),
-          axios.get<string[]>('/api/teams'),
+          getDocument(id!),
+          http.get<string[]>('/products'),
+          http.get<string[]>('/teams'),
         ]);
-        setDoc(docRes.data);
+        setDoc(docRes);
         setOptions({ products: productsRes.data, teams: teamsRes.data });
       } catch (err) {
         setError('Failed to load document');
@@ -40,7 +41,7 @@ export default function EditDocument() {
 
   const handleSave = async () => {
     try {
-      await axios.put(`/api/documents/${doc.id}`, doc);
+      await updateDocument(doc.id, doc);
       alert('Saved');
     } catch (err) {
       alert('Failed to save');
@@ -49,8 +50,8 @@ export default function EditDocument() {
 
   const handleSendForReview = async () => {
     try {
-      await axios.put(
-        `/api/documents/${doc.id}/status`,
+      await http.put(
+        `/documents/${doc.id}/status`,
         null,
         { params: { status: 'UnderReview' } }
       );
@@ -142,7 +143,7 @@ export default function EditDocument() {
           <button
             className="button"
             onClick={handleSendForReview}
-            disabled={doc.status !== 'InProgress'}
+            disabled={doc.status !== 'Draft'}
           >
             Send for review
           </button>

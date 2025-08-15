@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-
-export interface DocumentSummary {
-  id: string;
-  title: string;
-  product: string;
-  team: string;
-  author: string;
-  status: string;
-  updatedAt: string;
-}
+import { listDocuments } from '../api/documents';
+import { DocumentSummary } from '../types';
 
 export default function DocumentList() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
@@ -20,16 +11,7 @@ export default function DocumentList() {
   useEffect(() => {
     async function fetchDocs() {
       try {
-        const res = await axios.get<DesignDocument[]>('/api/documents');
-        const data = res.data.map((doc: DesignDocument) => ({
-          id: doc.id,
-          title: doc.title,
-          product: doc.product,
-          team: doc.team,
-          author: doc.author,
-          status: doc.status,
-          updatedAt: doc.updatedAt,
-        }));
+        const data = await listDocuments();
         setDocuments(data);
       } catch (err) {
         setError('Failed to load documents');
@@ -82,21 +64,4 @@ export default function DocumentList() {
       )}
     </div>
   );
-}
-
-// Type representing the server‑side document; used for casting response.
-export interface DesignDocument {
-  id: string;
-  title: string;
-  product: string;
-  team: string;
-  author: string;
-  taskLink: string;
-  content: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  gitRepository: string;
-  gitFilePath: string;
-  gitCommitHash: string;
 }

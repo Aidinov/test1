@@ -2,6 +2,7 @@ using DesignDocService.Dtos;
 using DesignDocService.Mapping;
 using DesignDocService.Models;
 using DesignDocService.Services;
+using ModelComment = DesignDocService.Models.Comment;
 
 namespace DesignDocService.Endpoints
 {
@@ -24,7 +25,7 @@ namespace DesignDocService.Endpoints
                 var comments = await service.GetCommentsAsync(documentId);
                 if (comments == null)
                     return Results.NotFound();
-                var responses = comments.Select(c => c.ToResponse()).ToList();
+                var responses = comments.Select(c => c.ToDto()).ToList();
                 return Results.Ok(responses);
             });
 
@@ -35,7 +36,7 @@ namespace DesignDocService.Endpoints
                 {
                     return Results.BadRequest("Invalid start/end indices.");
                 }
-                var comment = new Comment
+                var comment = new ModelComment
                 {
                     Author = commentDto.Author,
                     StartIndex = commentDto.StartIndex,
@@ -50,7 +51,7 @@ namespace DesignDocService.Endpoints
                 var created = await service.AddCommentAsync(documentId, comment);
                 if (created == null)
                     return Results.NotFound();
-                var response = created.ToResponse();
+                var response = created.ToDto();
                 return Results.Created($"/api/documents/{documentId}/comments/{response.Id}", response);
             });
 
@@ -60,7 +61,7 @@ namespace DesignDocService.Endpoints
                 var resolved = await service.ResolveCommentAsync(documentId, commentId, resolvedBy);
                 if (resolved == null)
                     return Results.NotFound();
-                var response = resolved.ToResponse();
+                var response = resolved.ToDto();
                 return Results.Ok(response);
             });
         }

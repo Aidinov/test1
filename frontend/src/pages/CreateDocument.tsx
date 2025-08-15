@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import http from '../lib/http';
+import { createDocument } from '../api/documents';
 
 interface OptionList {
   products: string[];
@@ -24,8 +25,8 @@ export default function CreateDocument() {
     async function fetchOptions() {
       try {
         const [productsRes, teamsRes] = await Promise.all([
-          axios.get<string[]>('/api/products'),
-          axios.get<string[]>('/api/teams'),
+          http.get<string[]>('/products'),
+          http.get<string[]>('/teams'),
         ]);
         setOptions({ products: productsRes.data, teams: teamsRes.data });
       } catch (err) {
@@ -38,18 +39,18 @@ export default function CreateDocument() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post('/api/documents', {
+      const res = await createDocument({
         title,
         product,
         team,
         author,
         taskLink,
         content,
-        status: 'InProgress',
+        status: 'Draft',
         gitRepository: gitRepo,
         gitFilePath: gitFilePath
       });
-      const id = res.data.id;
+      const id = res.id;
       navigate(`/edit/${id}`);
     } catch (err) {
       setError('Failed to create document');

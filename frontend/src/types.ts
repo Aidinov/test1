@@ -1,3 +1,9 @@
+export type DocumentStatus =
+  | 'Draft'
+  | 'UnderReview'
+  | 'Approved'
+  | 'Rejected';
+
 export enum CommentType {
   Question = 'Question',
   Remark = 'Remark'
@@ -7,6 +13,52 @@ export enum RemarkSeverity {
   Critical = 'Critical',
   Desirable = 'Desirable',
   Opinion = 'Opinion'
+}
+
+export interface DocumentSummary {
+  id: string;
+  title: string;
+  product: string;
+  team: string;
+  author: string;
+  taskLink: string;
+  gitRepository: string;
+  gitFilePath: string;
+  gitCommitHash: string;
+  status: DocumentStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentDetails extends DocumentSummary {
+  content: string;
+  comments: Comment[];
+}
+
+export interface CreateDocumentRequest {
+  title: string;
+  product: string;
+  team: string;
+  author: string;
+  taskLink: string;
+  content: string;
+  gitRepository: string;
+  gitFilePath: string;
+  gitCommitHash?: string;
+  status?: DocumentStatus;
+}
+
+export interface UpdateDocumentRequest {
+  title: string;
+  product: string;
+  team: string;
+  author: string;
+  taskLink: string;
+  content: string;
+  gitRepository: string;
+  gitFilePath: string;
+  gitCommitHash?: string;
+  status: DocumentStatus;
 }
 
 export interface Comment {
@@ -24,11 +76,25 @@ export interface Comment {
   resolvedBy?: string;
   resolvedAt?: string;
   documentVersion?: string;
-
-  /**
-   * The original text snippet this comment was attached to when it was created.  This
-   * allows the UI to display context for the comment even if the underlying
-   * document has since changed or the text was removed.
-   */
   originalText?: string;
+}
+
+export interface CommentRequest {
+  startIndex: number;
+  endIndex: number;
+  type: CommentType;
+  severity: RemarkSeverity;
+  content: string;
+  author: string;
+}
+
+export interface CommentReply {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CommentResponse extends Comment {
+  replies: CommentReply[];
 }

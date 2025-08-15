@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { DesignDocument } from './DocumentList';
-import { RemarkSeverity, CommentType, Comment } from '../types';
+import { getDocument } from '../api/documents';
+import { addComment as apiAddComment, listComments, resolveComment as apiResolve } from '../api/comments';
+import { RemarkSeverity, CommentType, Comment, DocumentDetails } from '../types';
 
 interface ViewState {
-  doc: DesignDocument | null;
+  doc: DocumentDetails | null;
   comments: Comment[];
 }
 
@@ -27,9 +27,8 @@ export default function ViewDocument() {
   useEffect(() => {
     async function load() {
       try {
-        const docRes = await axios.get<DesignDocument>(`/api/documents/${id}`);
-        const commentsRes = await axios.get<Comment[]>(`/api/documents/${id}/comments`);
-        setState({ doc: docRes.data, comments: commentsRes.data });
+        const doc = await getDocument(id!);
+        setState({ doc, comments: doc.comments ?? [] });
       } catch (err) {
         setError('Failed to load document or comments');
       } finally {
@@ -130,19 +129,16 @@ export default function ViewDocument() {
   const addComment = async () => {
     if (!id || !selection) return;
     try {
-      const payload = {
+      await apiAddComment(id, {
         startIndex: selection.start,
         endIndex: selection.end,
         type: formData.type,
         severity: formData.severity,
         content: formData.content,
         author: 'Reviewer'
-      };
-      await axios.post(`/api/documents/${id}/comments`, payload);
-      // Reload comments
-      const res = await axios.get<Comment[]>(`/api/documents/${id}/comments`);
-      setState((prev) => ({ ...prev, comments: res.data }));
-      // Reset state
+      });
+      const res = await listComments(id);
+      setState((prev) => ({ ...prev, comments: res }));
       setCommentFormVisible(false);
       setSelection(null);
       setFormData({ type: CommentType.Question, severity: RemarkSeverity.Opinion, content: '' });
@@ -154,12 +150,9 @@ export default function ViewDocument() {
   const resolveComment = async (comment: Comment) => {
     if (!id) return;
     try {
-      await axios.post(`/api/documents/${id}/comments/${comment.id}/resolve`, null, {
-        params: { resolvedBy: 'Reviewer' }
-      });
-      // Reload comments
-      const res = await axios.get<Comment[]>(`/api/documents/${id}/comments`);
-      setState((prev) => ({ ...prev, comments: res.data }));
+      await apiResolve(id, comment.id, 'Reviewer');
+      const res = await listComments(id);
+      setState((prev) => ({ ...prev, comments: res }));
     } catch (err) {
       alert('Failed to resolve comment');
     }
