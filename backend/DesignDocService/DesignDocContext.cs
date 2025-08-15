@@ -41,6 +41,16 @@ namespace DesignDocService
                 .HasIndex(d => d.Product);
             modelBuilder.Entity<DesignDocument>()
                 .HasIndex(d => d.Author);
+            modelBuilder.Entity<DesignDocument>()
+                .HasIndex(d => d.Status);
+            modelBuilder.Entity<DesignDocument>()
+                .HasIndex(d => d.UpdatedAt);
+
+            // Comment indexes for lookups and version checks
+            modelBuilder.Entity<Comment>()
+                .HasIndex(c => c.DocumentId);
+            modelBuilder.Entity<Comment>()
+                .HasIndex(c => c.DocumentVersion);
 
             base.OnModelCreating(modelBuilder);
         }
