@@ -1,9 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import http from '../lib/http';
-import Markdown from '../lib/markdown';
+import Markdown, { DEFAULT_IFRAME_WHITELIST } from '../lib/markdown';
 import { getDocument, updateDocument } from '../api/documents';
 import { DocumentDetails, DocumentStatus, UpdateDocumentRequest } from '../types';
+import {
+  Box,
+  Button,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
+import FormRow from '../ui/FormRow';
+import MarkdownToolbar from '../ui/MarkdownToolbar';
+import LoadingOverlay from '../ui/LoadingOverlay';
+import ErrorState from '../ui/ErrorState';
+import IframeWhitelistNotice from '../ui/IframeWhitelistNotice';
+import { useSnackbar } from 'notistack';
 
 interface OptionList {
   products: string[];
@@ -13,6 +27,7 @@ interface OptionList {
 export default function EditDocument() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
   const [doc, setDoc] = useState<DocumentDetails | null>(null);
   const [options, setOptions] = useState<OptionList>({ products: [], teams: [] });
   const [loading, setLoading] = useState(true);
@@ -40,8 +55,8 @@ export default function EditDocument() {
 
   useUnsavedChangesGuard(dirty);
 
-  if (loading) return <div>Loading...</div>;
-  if (error || !doc) return <div>{error ?? 'Document not found'}</div>;
+  if (loading) return <LoadingOverlay open />;
+  if (error || !doc) return <ErrorState message={error ?? 'Document not found'} />;
 
   const handleSave = async () => {
     try {
@@ -60,8 +75,9 @@ export default function EditDocument() {
       const res = await updateDocument(doc.id, req);
       setDoc({ ...doc, ...res, comments: doc.comments });
       setDirty(false);
+      enqueueSnackbar('Saved', { variant: 'success' });
     } catch (err) {
-      alert('Failed to save');
+      enqueueSnackbar('Failed to save', { variant: 'error' });
     }
   };
 
@@ -73,150 +89,146 @@ export default function EditDocument() {
         { params: { status: 'UnderReview' } }
       );
       setDoc({ ...doc, status: 'UnderReview' });
-      alert('Sent for review');
+      enqueueSnackbar('Sent for review', { variant: 'success' });
     } catch (err) {
-      alert('Failed to update status');
+      enqueueSnackbar('Failed to update status', { variant: 'error' });
     }
   };
 
   return (
-    <div>
-      <h2>Edit Document</h2>
-      <form className="metadata-form" onSubmit={(e) => e.preventDefault()}>
-        <label>
-          Title
-          <input
-            type="text"
+    <Box>
+      <Typography variant="h4" sx={{ mb: 2 }}>
+        Edit Document
+      </Typography>
+      <Box component="form" onSubmit={(e) => e.preventDefault()}>
+        <FormRow label="Title">
+          <TextField
             value={doc.title}
             onChange={(e) => {
               setDoc({ ...doc, title: e.target.value });
               setDirty(true);
             }}
           />
-        </label>
-        <label>
-          Product
-          <select
+        </FormRow>
+        <FormRow label="Product">
+          <Select
             value={doc.product}
             onChange={(e) => {
               setDoc({ ...doc, product: e.target.value });
               setDirty(true);
             }}
+            displayEmpty
           >
-            <option value="">Select a product</option>
+            <MenuItem value="">
+              <em>Select a product</em>
+            </MenuItem>
             {options.products.map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <MenuItem key={p} value={p}>{p}</MenuItem>
             ))}
-          </select>
-        </label>
-        <label>
-          Team
-          <select
+          </Select>
+        </FormRow>
+        <FormRow label="Team">
+          <Select
             value={doc.team}
             onChange={(e) => {
               setDoc({ ...doc, team: e.target.value });
               setDirty(true);
             }}
+            displayEmpty
           >
-            <option value="">Select a team</option>
+            <MenuItem value="">
+              <em>Select a team</em>
+            </MenuItem>
             {options.teams.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <MenuItem key={t} value={t}>{t}</MenuItem>
             ))}
-          </select>
-        </label>
-        <label>
-          Author
-          <input
-            type="text"
+          </Select>
+        </FormRow>
+        <FormRow label="Author">
+          <TextField
             value={doc.author}
             onChange={(e) => {
               setDoc({ ...doc, author: e.target.value });
               setDirty(true);
             }}
           />
-        </label>
-        <label>
-          Task Link
-          <input
-            type="text"
+        </FormRow>
+        <FormRow label="Task Link">
+          <TextField
             value={doc.taskLink}
             onChange={(e) => {
               setDoc({ ...doc, taskLink: e.target.value });
               setDirty(true);
             }}
           />
-        </label>
-        <label>
-          Git Repository URL
-          <input
-            type="text"
+        </FormRow>
+        <FormRow label="Git Repository URL">
+          <TextField
             value={doc.gitRepository}
             onChange={(e) => {
               setDoc({ ...doc, gitRepository: e.target.value });
               setDirty(true);
             }}
           />
-        </label>
-        <label>
-          Git File Path
-          <input
-            type="text"
+        </FormRow>
+        <FormRow label="Git File Path">
+          <TextField
             value={doc.gitFilePath}
             onChange={(e) => {
               setDoc({ ...doc, gitFilePath: e.target.value });
               setDirty(true);
             }}
           />
-        </label>
-        <label>
-          Status
-          <select
+        </FormRow>
+        <FormRow label="Status">
+          <Select
             value={doc.status}
             onChange={(e) => {
               setDoc({ ...doc, status: e.target.value as DocumentStatus });
               setDirty(true);
             }}
           >
-            <option value="Draft">Draft</option>
-            <option value="UnderReview">UnderReview</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-        </label>
-        <label>
-          Content
-          <textarea
-            className="editor-textarea"
-            value={doc.content}
-            onChange={(e) => {
-              setDoc({ ...doc, content: e.target.value });
+            <MenuItem value="Draft">Draft</MenuItem>
+            <MenuItem value="UnderReview">UnderReview</MenuItem>
+            <MenuItem value="Approved">Approved</MenuItem>
+            <MenuItem value="Rejected">Rejected</MenuItem>
+          </Select>
+        </FormRow>
+        <FormRow label="Content">
+          <Box sx={{ flex: 1 }}>
+            <MarkdownToolbar onInsert={(s) => {
+              setDoc({ ...doc, content: doc.content + s });
               setDirty(true);
-            }}
-          />
-        </label>
-        <div>
-          <h3>Preview</h3>
+            }} />
+            <TextField
+              multiline
+              minRows={10}
+              fullWidth
+              value={doc.content}
+              onChange={(e) => {
+                setDoc({ ...doc, content: e.target.value });
+                setDirty(true);
+              }}
+            />
+          </Box>
+        </FormRow>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="h6">Preview</Typography>
+          <IframeWhitelistNotice hosts={DEFAULT_IFRAME_WHITELIST} />
           <Markdown markdown={doc.content} />
-        </div>
-        <div>Commit: <span data-testid="commit-hash">{doc.gitCommitHash}</span></div>
-        <div>
-          <button className="button" onClick={handleSave}>Save</button>
-          <button
-            className="button"
-            onClick={handleSendForReview}
-            disabled={doc.status !== 'Draft'}
-          >
+        </Box>
+        <Typography sx={{ mb: 2 }}>
+          Commit: <span data-testid="commit-hash">{doc.gitCommitHash}</span>
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button onClick={handleSave}>Save</Button>
+          <Button onClick={handleSendForReview} disabled={doc.status !== 'Draft'}>
             Send for review
-          </button>
-          <button
-            className="button"
-            onClick={() => navigate(`/documents/${doc.id}`)}
-          >
-            View
-          </button>
-        </div>
-      </form>
-    </div>
+          </Button>
+          <Button onClick={() => navigate(`/documents/${doc.id}`)}>View</Button>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 

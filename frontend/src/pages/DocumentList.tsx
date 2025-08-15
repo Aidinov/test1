@@ -1,7 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  MenuItem,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { listDocuments } from '../api/documents';
 import { DocumentStatus, DocumentSummary } from '../types';
+import StatusChip from '../ui/StatusChip';
+import LoadingOverlay from '../ui/LoadingOverlay';
+import EmptyState from '../ui/EmptyState';
+import ErrorState from '../ui/ErrorState';
 
 export default function DocumentList() {
   const navigate = useNavigate();
@@ -44,95 +61,81 @@ export default function DocumentList() {
     fetchDocs({ page: 1 });
   }
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>{error}</div>;
+  if (loading) return <LoadingOverlay open />;
+  if (error) return <ErrorState message={error} />;
 
   return (
-    <div>
-      <h2>Documents</h2>
-      <div>
-        <input
-          placeholder="Team"
-          value={team}
-          onChange={(e) => setTeam(e.target.value)}
-        />
-        <input
-          placeholder="Product"
-          value={product}
-          onChange={(e) => setProduct(e.target.value)}
-        />
-        <input
-          placeholder="Author"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-        />
-        <select
-          aria-label="Status"
+    <Box>
+      <Typography variant="h4" sx={{ mb: 2 }}>
+        Documents
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <TextField label="Team" value={team} onChange={(e) => setTeam(e.target.value)} />
+        <TextField label="Product" value={product} onChange={(e) => setProduct(e.target.value)} />
+        <TextField label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
+        <Select
+          displayEmpty
           value={status}
           onChange={(e) => setStatus(e.target.value as DocumentStatus | '')}
         >
-          <option value="">All</option>
-          <option value="Draft">Draft</option>
-          <option value="UnderReview">UnderReview</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
-        </select>
-        <button onClick={applyFilters}>Apply</button>
-      </div>
-      <div>
-        <button
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={page === 1}
-        >
+          <MenuItem value="">
+            <em>All</em>
+          </MenuItem>
+          <MenuItem value="Draft">Draft</MenuItem>
+          <MenuItem value="UnderReview">UnderReview</MenuItem>
+          <MenuItem value="Approved">Approved</MenuItem>
+          <MenuItem value="Rejected">Rejected</MenuItem>
+        </Select>
+        <Button onClick={applyFilters}>Apply</Button>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
           Prev
-        </button>
-        <span>Page {page}</span>
-        <button onClick={() => setPage((p) => p + 1)}>Next</button>
-        <select
-          aria-label="Page Size"
+        </Button>
+        <Typography>Page {page}</Typography>
+        <Button onClick={() => setPage((p) => p + 1)}>Next</Button>
+        <Select
           value={pageSize}
           onChange={(e) => {
             setPageSize(Number(e.target.value));
             setPage(1);
           }}
         >
-          <option value={5}>5</option>
-          <option value={10}>10</option>
-          <option value={20}>20</option>
-        </select>
-      </div>
+          <MenuItem value={5}>5</MenuItem>
+          <MenuItem value={10}>10</MenuItem>
+          <MenuItem value={20}>20</MenuItem>
+        </Select>
+      </Box>
       {documents.length === 0 ? (
-        <p>No documents found.</p>
+        <EmptyState message="No documents found." />
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Product</th>
-              <th>Team</th>
-              <th>Author</th>
-              <th>Status</th>
-              <th>UpdatedAt</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table size="small" sx={{ cursor: 'pointer' }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Title</TableCell>
+              <TableCell>Product</TableCell>
+              <TableCell>Team</TableCell>
+              <TableCell>Author</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>UpdatedAt</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {documents.map((doc) => (
-              <tr
-                key={doc.id}
-                onClick={() => navigate(`/documents/${doc.id}`)}
-                style={{ cursor: 'pointer' }}
-              >
-                <td>{doc.title}</td>
-                <td>{doc.product}</td>
-                <td>{doc.team}</td>
-                <td>{doc.author}</td>
-                <td>{doc.status}</td>
-                <td>{new Date(doc.updatedAt).toLocaleString()}</td>
-              </tr>
+              <TableRow key={doc.id} onClick={() => navigate(`/documents/${doc.id}`)}>
+                <TableCell>{doc.title}</TableCell>
+                <TableCell>{doc.product}</TableCell>
+                <TableCell>{doc.team}</TableCell>
+                <TableCell>{doc.author}</TableCell>
+                <TableCell>
+                  <StatusChip status={doc.status} />
+                </TableCell>
+                <TableCell>{new Date(doc.updatedAt).toLocaleString()}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </div>
+    </Box>
   );
 }

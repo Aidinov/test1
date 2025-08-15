@@ -31,7 +31,7 @@ export function sanitizeHtmlWithIframeWhitelist(html: string, whitelist: string[
   return doc.body.innerHTML;
 }
 
-const DEFAULT_IFRAME_WHITELIST = ['youtube.com', 'youtu.be', 'figma.com', 'diagrams.net'];
+export const DEFAULT_IFRAME_WHITELIST = ['youtube.com', 'youtu.be', 'figma.com', 'diagrams.net'];
 
 export default function Markdown({ markdown }: { markdown: string }) {
   const ref = useRef<HTMLDivElement>(null);
