@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import http from '../lib/http';
+import Markdown from '../lib/markdown';
 import { getDocument, updateDocument } from '../api/documents';
 import { DocumentDetails, DocumentStatus, UpdateDocumentRequest } from '../types';
 
@@ -197,7 +196,7 @@ export default function EditDocument() {
         </label>
         <div>
           <h3>Preview</h3>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.content}</ReactMarkdown>
+          <Markdown markdown={doc.content} />
         </div>
         <div>Commit: <span data-testid="commit-hash">{doc.gitCommitHash}</span></div>
         <div>
