@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import http from '../lib/http';
+import { createDocument } from '../api/documents';
+import {
+  Box,
+  Button,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
+import FormRow from '../ui/FormRow';
+import MarkdownToolbar from '../ui/MarkdownToolbar';
+import ErrorState from '../ui/ErrorState';
+import { useSnackbar } from 'notistack';
 
 interface OptionList {
   products: string[];
@@ -9,6 +22,7 @@ interface OptionList {
 
 export default function CreateDocument() {
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
   const [options, setOptions] = useState<OptionList>({ products: [], teams: [] });
   const [title, setTitle] = useState('');
   const [product, setProduct] = useState('');
@@ -24,8 +38,8 @@ export default function CreateDocument() {
     async function fetchOptions() {
       try {
         const [productsRes, teamsRes] = await Promise.all([
-          axios.get<string[]>('/api/products'),
-          axios.get<string[]>('/api/teams'),
+          http.get<string[]>('/products'),
+          http.get<string[]>('/teams'),
         ]);
         setOptions({ products: productsRes.data, teams: teamsRes.data });
       } catch (err) {
@@ -38,89 +52,83 @@ export default function CreateDocument() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post('/api/documents', {
+      const res = await createDocument({
         title,
         product,
         team,
         author,
         taskLink,
         content,
-        status: 'InProgress',
+        status: 'Draft',
         gitRepository: gitRepo,
         gitFilePath: gitFilePath
       });
-      const id = res.data.id;
+      enqueueSnackbar('Document created', { variant: 'success' });
+      const id = res.id;
       navigate(`/edit/${id}`);
     } catch (err) {
       setError('Failed to create document');
+      enqueueSnackbar('Failed to create document', { variant: 'error' });
     }
   };
 
   return (
-    <div>
-      <h2>Create New Document</h2>
-      {error && <div style={{ color: 'red' }}>{error}</div>}
-      <form className="metadata-form" onSubmit={handleSubmit}>
-        <label>
-          Title
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        </label>
-        <label>
-          Product
-          <select value={product} onChange={(e) => setProduct(e.target.value)} required>
-            <option value="">Select a product</option>
+    <Box>
+      <Typography variant="h4" sx={{ mb: 2 }}>
+        Create New Document
+      </Typography>
+      {error && <ErrorState message={error} />}
+      <Box component="form" onSubmit={handleSubmit}>
+        <FormRow label="Title">
+          <TextField value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </FormRow>
+        <FormRow label="Product">
+          <Select value={product} onChange={(e) => setProduct(e.target.value)} required displayEmpty>
+            <MenuItem value="">
+              <em>Select a product</em>
+            </MenuItem>
             {options.products.map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <MenuItem key={p} value={p}>{p}</MenuItem>
             ))}
-          </select>
-        </label>
-        <label>
-          Team
-          <select value={team} onChange={(e) => setTeam(e.target.value)} required>
-            <option value="">Select a team</option>
+          </Select>
+        </FormRow>
+        <FormRow label="Team">
+          <Select value={team} onChange={(e) => setTeam(e.target.value)} required displayEmpty>
+            <MenuItem value="">
+              <em>Select a team</em>
+            </MenuItem>
             {options.teams.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <MenuItem key={t} value={t}>{t}</MenuItem>
             ))}
-          </select>
-        </label>
-        <label>
-          Author
-          <input
-            type="text"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Task Link
-          <input type="text" value={taskLink} onChange={(e) => setTaskLink(e.target.value)} />
-        </label>
-        <label>
-          Git Repository URL
-          <input
-            type="text"
-            value={gitRepo}
-            onChange={(e) => setGitRepo(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Git File Path
-          <input
-            type="text"
-            value={gitFilePath}
-            onChange={(e) => setGitFilePath(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Content (Markdown)
-          <textarea className="editor-textarea" value={content} onChange={(e) => setContent(e.target.value)} />
-        </label>
-        <button className="button" type="submit">Create</button>
-      </form>
-    </div>
+          </Select>
+        </FormRow>
+        <FormRow label="Author">
+          <TextField value={author} onChange={(e) => setAuthor(e.target.value)} required />
+        </FormRow>
+        <FormRow label="Task Link">
+          <TextField value={taskLink} onChange={(e) => setTaskLink(e.target.value)} />
+        </FormRow>
+        <FormRow label="Git Repository URL">
+          <TextField value={gitRepo} onChange={(e) => setGitRepo(e.target.value)} required />
+        </FormRow>
+        <FormRow label="Git File Path">
+          <TextField value={gitFilePath} onChange={(e) => setGitFilePath(e.target.value)} required />
+        </FormRow>
+        <FormRow label="Content">
+          <Box sx={{ flex: 1 }}>
+            <MarkdownToolbar onInsert={(s) => setContent((c) => c + s)} />
+            <TextField
+              multiline
+              minRows={10}
+              fullWidth
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </Box>
+        </FormRow>
+        <Button type="submit">Create</Button>
+      </Box>
+    </Box>
   );
 }
 

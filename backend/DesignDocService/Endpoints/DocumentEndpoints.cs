@@ -29,9 +29,8 @@ namespace DesignDocService.Endpoints
                 {
                     entities = await service.GetAllAsync();
                 }
-                // For list responses, do not load content or comments.  Convert each entity to response with null content.
-                var dtos = entities.Select(e => e.ToResponse(null, null)).ToList();
-                return Results.Ok(dtos);
+                var summaries = entities.Select(e => e.ToSummary()).ToList();
+                return Results.Ok(summaries);
             });
 
             // Get a document by id
@@ -42,13 +41,13 @@ namespace DesignDocService.Endpoints
                     return Results.NotFound();
                 // Load content from Git
                 var content = await gitService.ReadFileAsync(doc.GitRepository, doc.GitFilePath, doc.GitCommitHash);
-                var commentsDto = doc.Comments?.Select(c => c.ToResponse());
-                var response = doc.ToResponse(content, commentsDto);
-                return Results.Ok(response);
+                var commentsDto = doc.Comments?.Select(c => c.ToResponseDto());
+                var details = doc.ToDetails(content, commentsDto);
+                return Results.Ok(details);
             });
 
             // Create a new document
-            group.MapPost("", async (CreateDesignDocumentRequest docDto, DesignDocumentService service) =>
+            group.MapPost("", async (CreateDocumentRequest docDto, DesignDocumentService service) =>
             {
                 // Validate required fields
                 if (string.IsNullOrWhiteSpace(docDto.Title))
@@ -64,12 +63,12 @@ namespace DesignDocService.Endpoints
 
                 var entity = docDto.ToEntity();
                 var created = await service.CreateAsync(entity, docDto.Content);
-                var response = created.ToResponse(null, null);
-                return Results.Created($"/api/documents/{response.Id}", response);
+                var summary = created.ToSummary();
+                return Results.Created($"/api/documents/{summary.Id}", summary);
             });
 
             // Update a document
-            group.MapPut("/{id:guid}", async (Guid id, UpdateDesignDocumentRequest updatedDto, DesignDocumentService service) =>
+            group.MapPut("/{id:guid}", async (Guid id, UpdateDocumentRequest updatedDto, DesignDocumentService service) =>
             {
                 var updatedEntity = new DesignDocument
                 {
@@ -86,8 +85,8 @@ namespace DesignDocService.Endpoints
                 var doc = await service.UpdateAsync(id, updatedEntity, updatedDto.Content);
                 if (doc == null)
                     return Results.NotFound();
-                var response = doc.ToResponse(null, null);
-                return Results.Ok(response);
+                var summary = doc.ToSummary();
+                return Results.Ok(summary);
             });
 
             // Update document status only
@@ -96,8 +95,8 @@ namespace DesignDocService.Endpoints
                 var doc = await service.UpdateStatusAsync(id, status);
                 if (doc == null)
                     return Results.NotFound();
-                var response = doc.ToResponse(null, null);
-                return Results.Ok(response);
+                var summary = doc.ToSummary();
+                return Results.Ok(summary);
             });
         }
     }
