@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using DesignDocService.Dtos;
 using DesignDocService.Models;
+using CommentResponse = DesignDocService.Dtos.CommentResponse;
+using ModelComment = DesignDocService.Models.Comment;
 
 namespace DesignDocService.Mapping
 {
@@ -10,13 +13,33 @@ namespace DesignDocService.Mapping
     public static class MappingExtensions
     {
         /// <summary>
-        /// Converts a <see cref="DesignDocument"/> entity to a <see cref="DesignDocumentResponse"/>.
-        /// Optionally accepts preloaded content and comment DTOs.  When content is null the
-        /// caller should load it via the Git service.
+        /// Converts a <see cref="DesignDocument"/> entity to a <see cref="DocumentSummary"/>.
         /// </summary>
-        public static DesignDocumentResponse ToResponse(this DesignDocument entity, string? content = null, IEnumerable<CommentResponse>? comments = null)
+        public static DocumentSummary ToSummary(this DesignDocument entity)
         {
-            return new DesignDocumentResponse
+            return new DocumentSummary
+            {
+                Id = entity.Id,
+                Title = entity.Title,
+                Product = entity.Product,
+                Team = entity.Team,
+                Author = entity.Author,
+                TaskLink = entity.TaskLink,
+                GitRepository = entity.GitRepository,
+                GitFilePath = entity.GitFilePath,
+                GitCommitHash = entity.GitCommitHash,
+                Status = entity.Status,
+                CreatedAt = entity.CreatedAt,
+                UpdatedAt = entity.UpdatedAt
+            };
+        }
+
+        /// <summary>
+        /// Converts a <see cref="DesignDocument"/> entity to a <see cref="DocumentDetails"/>.
+        /// </summary>
+        public static DocumentDetails ToDetails(this DesignDocument entity, string? content = null, IEnumerable<CommentResponse>? comments = null)
+        {
+            return new DocumentDetails
             {
                 Id = entity.Id,
                 Title = entity.Title,
@@ -36,9 +59,9 @@ namespace DesignDocService.Mapping
         }
 
         /// <summary>
-        /// Converts a <see cref="Comment"/> entity to a <see cref="CommentResponse"/> DTO.
+        /// Converts a <see cref="ModelComment"/> entity to a <see cref="DtoComment"/> DTO.
         /// </summary>
-        public static CommentResponse ToResponse(this Comment comment)
+        public static CommentResponse ToResponseDto(this ModelComment comment)
         {
             return new CommentResponse
             {
@@ -56,16 +79,14 @@ namespace DesignDocService.Mapping
                 ResolvedBy = comment.ResolvedBy,
                 ResolvedAt = comment.ResolvedAt,
                 DocumentVersion = comment.DocumentVersion,
-                OriginalText = comment.OriginalText
+                OriginalText = comment.OriginalText,
+                Replies = new List<CommentReply>()
             };
         }
 
-        /// <summary>
-        /// Converts a collection of <see cref="Comment"/> entities to response DTOs.
-        /// </summary>
-        public static IEnumerable<CommentResponse> ToResponse(this IEnumerable<Comment> comments)
+        public static IEnumerable<CommentResponse> ToResponseDto(this IEnumerable<ModelComment> comments)
         {
-            return comments.Select(c => c.ToResponse());
+            return comments.Select(c => c.ToResponseDto());
         }
 
         /// <summary>
@@ -73,7 +94,7 @@ namespace DesignDocService.Mapping
         /// content is handled separately and should be passed to the Git service when
         /// persisting the document.
         /// </summary>
-        public static DesignDocument ToEntity(this CreateDesignDocumentRequest request)
+        public static DesignDocument ToEntity(this CreateDocumentRequest request)
         {
             return new DesignDocument
             {
@@ -93,9 +114,8 @@ namespace DesignDocService.Mapping
 
         /// <summary>
         /// Maps an update request DTO to an existing <see cref="DesignDocument"/> entity.
-        /// Only properties that are present in the request will overwrite existing values.
         /// </summary>
-        public static void ApplyUpdates(this DesignDocument entity, UpdateDesignDocumentRequest request)
+        public static void ApplyUpdates(this DesignDocument entity, UpdateDocumentRequest request)
         {
             entity.Title = request.Title;
             entity.Product = request.Product;

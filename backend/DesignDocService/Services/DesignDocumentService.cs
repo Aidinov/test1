@@ -9,26 +9,24 @@ namespace DesignDocService.Services
     public class DesignDocumentService(DesignDocContext context, IGitService gitService)
     {
         /// <summary>
-        /// Returns all design documents including their comments.
-        /// </summary>
-        public async Task<List<DesignDocument>> GetAllAsync()
-        {
-            // When listing documents we deliberately do not load the content from the Git
-            // repository to avoid unnecessary overhead.  The Content property is not
-            // persisted in the database, so it will remain empty for documents returned here.
-            return await context.DesignDocuments
-                .Include(d => d.Comments)
-                .ToListAsync();
-        }
-
-        /// <summary>
-        /// Retrieves design documents filtered by optional criteria. Null or empty criteria are ignored.
+        /// Retrieves design documents filtered by optional criteria and paginated.
         /// </summary>
         /// <param name="team">Team name to filter by.</param>
         /// <param name="product">Product name to filter by.</param>
         /// <param name="author">Author name to filter by.</param>
-        public async Task<List<DesignDocument>> GetFilteredAsync(string? team, string? product, string? author)
+        /// <param name="status">Document status to filter by.</param>
+        /// <param name="page">1-based page number.</param>
+        /// <param name="pageSize">Number of items per page.</param>
+        public async Task<List<DesignDocument>> GetFilteredAsync(
+            string? team,
+            string? product,
+            string? author,
+            DocumentStatus? status,
+            int page,
+            int pageSize)
         {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 20;
             var query = context.DesignDocuments.AsQueryable();
             if (!string.IsNullOrEmpty(team))
                 query = query.Where(d => d.Team == team);
@@ -36,7 +34,14 @@ namespace DesignDocService.Services
                 query = query.Where(d => d.Product == product);
             if (!string.IsNullOrEmpty(author))
                 query = query.Where(d => d.Author == author);
-            return await query.Include(d => d.Comments).ToListAsync();
+            if (status.HasValue)
+                query = query.Where(d => d.Status == status);
+            return await query
+                .OrderByDescending(d => d.UpdatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Include(d => d.Comments)
+                .ToListAsync();
         }
 
         /// <summary>
@@ -190,10 +195,9 @@ namespace DesignDocService.Services
         /// <summary>
         /// Marks a comment as resolved.
         /// </summary>
-        public async Task<Comment?> ResolveCommentAsync(Guid documentId, Guid commentId, string resolvedBy)
+        public async Task<Comment?> ResolveCommentAsync(Guid commentId, string resolvedBy)
         {
-            var comment = await context.Comments
-                .FirstOrDefaultAsync(c => c.DocumentId == documentId && c.Id == commentId);
+            var comment = await context.Comments.FindAsync(commentId);
             if (comment == null) return null;
             if (!comment.IsResolved)
             {
@@ -201,7 +205,7 @@ namespace DesignDocService.Services
                 comment.ResolvedBy = resolvedBy;
                 comment.ResolvedAt = DateTime.UtcNow;
                 comment.UpdatedAt = DateTime.UtcNow;
-                var doc = await context.DesignDocuments.FindAsync(documentId);
+                var doc = await context.DesignDocuments.FindAsync(comment.DocumentId);
                 if (doc != null)
                 {
                     doc.UpdatedAt = DateTime.UtcNow;

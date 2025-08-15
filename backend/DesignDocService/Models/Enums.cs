@@ -45,7 +45,7 @@ namespace DesignDocService.Models
         /// <summary>
         /// The document is being drafted by the author.
         /// </summary>
-        InProgress,
+        Draft,
 
         /// <summary>
         /// The document has been sent for review.

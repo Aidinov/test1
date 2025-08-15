@@ -1,12 +1,22 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { DesignDocument } from './DocumentList';
-import { RemarkSeverity, CommentType, Comment } from '../types';
+import { getDocument } from '../api/documents';
+import { addComment as apiAddComment, listComments, resolveComment as apiResolve } from '../api/comments';
+import { RemarkSeverity, CommentType, CommentResponse, DocumentDetails } from '../types';
+import { Box, Popover, SpeedDial, SpeedDialAction, Typography, Button } from '@mui/material';
+import { useTheme, alpha } from '@mui/material/styles';
+import AddCommentIcon from '@mui/icons-material/AddComment';
+import { useSnackbar } from 'notistack';
+import SeverityChip from '../ui/SeverityChip';
+import StatusChip from '../ui/StatusChip';
+import CommentDialog from '../ui/CommentDialog';
+import CommentsPanel from '../ui/CommentsPanel';
+import { useUserRole } from '../lib/UserRoleContext';
+import { selectionToOffsets } from '../utils/selectionToOffsets';
 
 interface ViewState {
-  doc: DesignDocument | null;
-  comments: Comment[];
+  doc: DocumentDetails | null;
+  comments: CommentResponse[];
 }
 
 export default function ViewDocument() {
@@ -14,22 +24,23 @@ export default function ViewDocument() {
   const [state, setState] = useState<ViewState>({ doc: null, comments: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
-  const [commentFormVisible, setCommentFormVisible] = useState(false);
-  const [formData, setFormData] = useState<{
-    type: CommentType;
-    severity: RemarkSeverity;
-    content: string;
-  }>({ type: CommentType.Question, severity: RemarkSeverity.Opinion, content: '' });
+  const [selection, setSelection] =
+    useState<{ start: number; end: number } | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [hovered, setHovered] = useState<CommentResponse | null>(null);
+  const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const role = useUserRole();
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const docRes = await axios.get<DesignDocument>(`/api/documents/${id}`);
-        const commentsRes = await axios.get<Comment[]>(`/api/documents/${id}/comments`);
-        setState({ doc: docRes.data, comments: commentsRes.data });
+        const doc = await getDocument(id!);
+        setState({ doc, comments: doc.comments ?? [] });
       } catch (err) {
         setError('Failed to load document or comments');
       } finally {
@@ -41,26 +52,23 @@ export default function ViewDocument() {
 
   // Handler to track text selection and compute start/end indices
   const handleMouseUp = () => {
-    if (!state.doc) return;
-    const selectionObj = window.getSelection();
-    if (!selectionObj || selectionObj.isCollapsed) {
+    if (!state.doc || !contentRef.current) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) {
       setSelection(null);
       return;
     }
-    const selectedText = selectionObj.toString();
-    if (!selectedText) {
+    const range = sel.getRangeAt(0);
+    const offsets = selectionToOffsets(
+      state.doc.content,
+      range,
+      contentRef.current
+    );
+    if (!offsets) {
       setSelection(null);
       return;
     }
-    // Compute the first occurrence of selected text within the content
-    const contentString = state.doc.content;
-    const startIdx = contentString.indexOf(selectedText);
-    if (startIdx === -1) {
-      setSelection(null);
-      return;
-    }
-    const endIdx = startIdx + selectedText.length;
-    setSelection({ start: startIdx, end: endIdx });
+    setSelection({ start: offsets.startIndex, end: offsets.endIndex });
   };
 
   // Highlight logic: build spans around commented ranges
@@ -70,99 +78,123 @@ export default function ViewDocument() {
     if (state.comments.length === 0) {
       return <pre>{text}</pre>;
     }
-    // Sort comments by start index
-    const sorted = [...state.comments].sort((a, b) => a.startIndex - b.startIndex);
+    const sorted = [...state.comments].sort(
+      (a, b) => a.startIndex - b.startIndex
+    );
     const elements: JSX.Element[] = [];
     let pointer = 0;
-    sorted.forEach((comment, idx) => {
-      if (comment.startIndex > text.length) return; // skip invalid
-      // Add text before comment
+    sorted.forEach((comment) => {
+      if (comment.startIndex > text.length) return;
       if (comment.startIndex > pointer) {
         const substr = text.slice(pointer, comment.startIndex);
         elements.push(<span key={`text-${pointer}`}>{substr}</span>);
         pointer = comment.startIndex;
       }
-      // Add commented section
       const end = Math.min(comment.endIndex, text.length);
       if (end > pointer) {
         const substr = text.slice(pointer, end);
-        const className = getCommentClass(comment);
+        const color = highlightColor(comment);
         elements.push(
-          <span
+          <Box
+            component="span"
             key={`comment-${comment.id}`}
-            className={className}
-            onClick={() => scrollToComment(comment.id)}
+            tabIndex={0}
+            onMouseEnter={(e) => {
+              setAnchorEl(e.currentTarget);
+              setHovered(comment);
+            }}
+            onMouseLeave={() => {
+              setAnchorEl(null);
+              setHovered(null);
+            }}
+            sx={{
+              backgroundColor: color,
+              borderRadius: 1,
+            }}
           >
             {substr}
-          </span>
+          </Box>
         );
         pointer = end;
       }
     });
-    // Add remaining text
     if (pointer < text.length) {
       elements.push(<span key={`tail-${pointer}`}>{text.slice(pointer)}</span>);
     }
     return <pre>{elements}</pre>;
   }
 
-  function getCommentClass(comment: Comment) {
-    if (comment.isResolved) return 'comment-resolved';
-    if (comment.type === CommentType.Question) return 'comment-question';
-    switch (comment.severity) {
-      case RemarkSeverity.Critical:
-        return 'comment-critical';
-      case RemarkSeverity.Desirable:
-        return 'comment-desirable';
-      case RemarkSeverity.Opinion:
-      default:
-        return 'comment-opinion';
-    }
+  function highlightColor(comment: CommentResponse) {
+    const base = comment.isResolved
+      ? theme.palette.success.light
+      : comment.type === CommentType.Question
+      ? theme.palette.info.light
+      : comment.severity === RemarkSeverity.Critical
+      ? theme.palette.error.light
+      : comment.severity === RemarkSeverity.Desirable
+      ? theme.palette.warning.light
+      : theme.palette.info.light;
+    return alpha(base, 0.3);
   }
 
-  function scrollToComment(commentId: string) {
-    const el = document.getElementById(`comment-${commentId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
-
-  const addComment = async () => {
+  const handleAddComment = async (data: {
+    type: CommentType;
+    severity: RemarkSeverity;
+    content: string;
+  }) => {
     if (!id || !selection) return;
     try {
-      const payload = {
+      await apiAddComment(id, {
         startIndex: selection.start,
         endIndex: selection.end,
-        type: formData.type,
-        severity: formData.severity,
-        content: formData.content,
-        author: 'Reviewer'
-      };
-      await axios.post(`/api/documents/${id}/comments`, payload);
-      // Reload comments
-      const res = await axios.get<Comment[]>(`/api/documents/${id}/comments`);
-      setState((prev) => ({ ...prev, comments: res.data }));
-      // Reset state
-      setCommentFormVisible(false);
+        type: data.type,
+        severity: data.severity,
+        content: data.content,
+        author: 'Reviewer',
+      });
+      const res = await listComments(id);
+      setState((prev) => ({ ...prev, comments: res }));
       setSelection(null);
-      setFormData({ type: CommentType.Question, severity: RemarkSeverity.Opinion, content: '' });
-    } catch (err) {
-      alert('Failed to add comment');
+      enqueueSnackbar('Comment added', { variant: 'success' });
+    } catch {
+      enqueueSnackbar('Failed to add comment', { variant: 'error' });
     }
   };
 
-  const resolveComment = async (comment: Comment) => {
-    if (!id) return;
+  const resolveComment = async (comment: CommentResponse) => {
     try {
-      await axios.post(`/api/documents/${id}/comments/${comment.id}/resolve`, null, {
-        params: { resolvedBy: 'Reviewer' }
-      });
-      // Reload comments
-      const res = await axios.get<Comment[]>(`/api/documents/${id}/comments`);
-      setState((prev) => ({ ...prev, comments: res.data }));
-    } catch (err) {
-      alert('Failed to resolve comment');
+      await apiResolve(comment.id, role);
+      const res = await listComments(id!);
+      setState((prev) => ({ ...prev, comments: res }));
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        enqueueSnackbar('Not allowed to resolve', { variant: 'error' });
+      } else {
+        enqueueSnackbar('Failed to resolve comment', { variant: 'error' });
+      }
     }
+  };
+
+  const addReply = (commentId: string, content: string) => {
+    setState((prev) => ({
+      ...prev,
+      comments: prev.comments.map((c) =>
+        c.id === commentId
+          ? {
+              ...c,
+              replies: [
+                ...c.replies,
+                {
+                  id: Math.random().toString(),
+                  author: role,
+                  content,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+            }
+          : c,
+      ),
+    }));
   };
 
   if (loading) return <div>Loading...</div>;
@@ -172,107 +204,59 @@ export default function ViewDocument() {
     <div style={{ display: 'flex', gap: '1rem' }}>
       <div style={{ flex: 1 }}>
         <h2>{state.doc.title}</h2>
-        <div
+        <Button onClick={() => setPanelOpen(true)}>Comments</Button>
+        <Box
           ref={contentRef}
           onMouseUp={handleMouseUp}
-          style={{ whiteSpace: 'pre-wrap', position: 'relative' }}
+          sx={{ whiteSpace: 'pre-wrap', position: 'relative' }}
         >
           {renderHighlightedContent()}
-        </div>
+        </Box>
         {selection && (
-          <div style={{ marginTop: '1rem' }}>
-            <button className="button" onClick={() => setCommentFormVisible(!commentFormVisible)}>
-              Add Comment
-            </button>
-            <span style={{ marginLeft: '0.5rem' }}>
-              Selected {selection.end - selection.start} chars
-            </span>
-          </div>
-        )}
-        {commentFormVisible && selection && (
-          <div style={{ marginTop: '1rem', border: '1px solid #ddd', padding: '1rem' }}>
-            <h3>New Comment</h3>
-            <div>
-              <label>
-                Type
-                <select
-                  value={formData.type}
-                  onChange={(e) =>
-                    setFormData({ ...formData, type: e.target.value as CommentType })
-                  }
-                >
-                  <option value={CommentType.Question}>Question</option>
-                  <option value={CommentType.Remark}>Remark</option>
-                </select>
-              </label>
-            </div>
-            {formData.type === CommentType.Remark && (
-              <div>
-                <label>
-                  Severity
-                  <select
-                    value={formData.severity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, severity: e.target.value as RemarkSeverity })
-                    }
-                  >
-                    <option value={RemarkSeverity.Critical}>Critical</option>
-                    <option value={RemarkSeverity.Desirable}>Desirable</option>
-                    <option value={RemarkSeverity.Opinion}>Opinion</option>
-                  </select>
-                </label>
-              </div>
-            )}
-            <div>
-              <label>
-                Content
-                <textarea
-                  className="editor-textarea"
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                />
-              </label>
-            </div>
-            <div>
-              <button className="button" onClick={addComment}>Save Comment</button>
-              <button
-                className="button"
-                onClick={() => setCommentFormVisible(false)}
-                style={{ backgroundColor: '#ccc', color: '#333' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="comment-panel">
-        <h3>Comments</h3>
-        {state.comments.length === 0 && <p>No comments yet.</p>}
-        {state.comments.map((c) => (
-          <div
-            key={c.id}
-            id={`comment-${c.id}`}
-            className={`comment ${c.isResolved ? 'resolved' : ''}`}
+          <SpeedDial
+            ariaLabel="add comment"
+            open
+            sx={{ position: 'fixed', bottom: 16, right: 16 }}
+            icon={<AddCommentIcon />}
           >
-            <p>
-              <strong>{c.type === CommentType.Question ? 'Question' : 'Remark'}</strong>
-              {c.type === CommentType.Remark && ` • ${c.severity}`}
-            </p>
-            <p>{c.content}</p>
-            <p style={{ fontSize: '0.8rem', color: '#666' }}>By {c.author}</p>
-            {!c.isResolved && (
-              <button className="button" onClick={() => resolveComment(c)}>
-                Resolve
-              </button>
-            )}
-            {c.isResolved && (
-              <p style={{ fontSize: '0.8rem', color: '#666' }}>
-                Resolved by {c.resolvedBy}
-              </p>
-            )}
-          </div>
-        ))}
+            <SpeedDialAction
+              icon={<AddCommentIcon />}
+              tooltipTitle="Add comment"
+              onClick={() => setDialogOpen(true)}
+            />
+          </SpeedDial>
+        )}
+        <CommentDialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          onSubmit={handleAddComment}
+        />
+        <Popover
+          open={Boolean(anchorEl)}
+          anchorEl={anchorEl}
+          onClose={() => {
+            setAnchorEl(null);
+            setHovered(null);
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        >
+          {hovered && (
+            <Box sx={{ p: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+              <SeverityChip severity={hovered.severity} />
+              <StatusChip status={hovered.isResolved ? 'Approved' : 'Draft'} />
+              <Typography variant="body2">0 replies</Typography>
+            </Box>
+          )}
+        </Popover>
+        <CommentsPanel
+          open={panelOpen}
+          onClose={() => setPanelOpen(false)}
+          comments={state.comments}
+          documentContent={state.doc.content}
+          documentVersion={state.doc.gitCommitHash}
+          onReply={addReply}
+          onResolve={resolveComment}
+        />
       </div>
     </div>
   );
