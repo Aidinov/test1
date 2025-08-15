@@ -156,6 +156,16 @@ export default function EditDocument() {
     setSelection({ start: offsets.startIndex, end: offsets.endIndex });
   };
 
+  const handleRangeEnter = (c: CommentResponse) =>
+    (e: React.MouseEvent<HTMLElement>) => {
+      setAnchorEl(e.currentTarget);
+      setHovered(c);
+    };
+  const handleRangeLeave = () => {
+    setAnchorEl(null);
+    setHovered(null);
+  };
+
   function renderHighlightedContent() {
     if (!doc) return null;
     const text = doc.content;
@@ -183,14 +193,8 @@ export default function EditDocument() {
             component="span"
             key={`comment-${comment.id}`}
             tabIndex={0}
-            onMouseEnter={(e) => {
-              setAnchorEl(e.currentTarget);
-              setHovered(comment);
-            }}
-            onMouseLeave={() => {
-              setAnchorEl(null);
-              setHovered(null);
-            }}
+            onMouseEnter={handleRangeEnter(comment)}
+            onMouseLeave={handleRangeLeave}
             sx={{
               backgroundColor: color,
               borderRadius: 1,
