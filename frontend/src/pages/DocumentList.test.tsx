@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import DocumentList from './DocumentList';
@@ -10,12 +11,29 @@ vi.mock('../api/documents');
 const mockList = vi.mocked(listDocuments);
 
 function renderList() {
-  return render(<DocumentList />, { wrapper: MemoryRouter });
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false, refetchOnMount: false }
+    }
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <DocumentList />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
 }
 
 describe('DocumentList', () => {
   beforeEach(() => {
     mockList.mockReset();
+  });
+
+  it('fetches once on mount', async () => {
+    mockList.mockResolvedValue([]);
+    renderList();
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
   });
 
   it('does not request content field', async () => {
@@ -35,10 +53,12 @@ describe('DocumentList', () => {
     fireEvent.change(screen.getAllByLabelText('Author')[0], { target: { value: 'A1' } });
     fireEvent.click(screen.getByText('Apply'));
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
+    await screen.findByText('No documents found.');
     expect(mockList).toHaveBeenCalledWith({
       team: 'T1',
       product: 'P1',
       author: 'A1',
+      status: undefined,
       page: 1,
       pageSize: 10
     });
@@ -48,6 +68,7 @@ describe('DocumentList', () => {
       team: 'T1',
       product: 'P1',
       author: 'A1',
+      status: undefined,
       page: 2,
       pageSize: 10
     });

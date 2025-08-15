@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { getDocument } from '../api/documents';
 import { addComment as apiAddComment, listComments, resolveComment as apiResolve } from '../api/comments';
 import { RemarkSeverity, CommentType, CommentResponse, DocumentDetails } from '../types';
@@ -14,16 +15,27 @@ import CommentsPanel from '../ui/CommentsPanel';
 import { useUserRole } from '../lib/UserRoleContext';
 import { selectionToOffsets } from '../utils/selectionToOffsets';
 
-interface ViewState {
-  doc: DocumentDetails | null;
-  comments: CommentResponse[];
-}
-
 export default function ViewDocument() {
   const { id } = useParams();
-  const [state, setState] = useState<ViewState>({ doc: null, comments: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  console.debug('[ViewDocument render]', renderCount.current);
+
+  const { data: doc, isLoading, isError } = useQuery({
+    queryKey: ['document', id],
+    queryFn: () => {
+      console.debug('[ViewDocument query]', new Error().stack);
+      return getDocument(id!);
+    }
+  });
+  const [comments, setComments] = useState<CommentResponse[]>([]);
+  const effectCount = useRef(0);
+  useEffect(() => {
+    effectCount.current += 1;
+    console.debug('[ViewDocument effect]', effectCount.current, new Error().stack);
+    if (doc?.comments) setComments(doc.comments);
+  }, [doc]);
+  const error = isError ? 'Failed to load document or comments' : null;
   const [selection, setSelection] =
     useState<{ start: number; end: number } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -36,23 +48,9 @@ export default function ViewDocument() {
 
   const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const doc = await getDocument(id!);
-        setState({ doc, comments: doc.comments ?? [] });
-      } catch (err) {
-        setError('Failed to load document or comments');
-      } finally {
-        setLoading(false);
-      }
-    }
-    if (id) load();
-  }, [id]);
-
   // Handler to track text selection and compute start/end indices
   const handleMouseUp = () => {
-    if (!state.doc || !contentRef.current) return;
+    if (!doc || !contentRef.current) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) {
       setSelection(null);
@@ -60,7 +58,7 @@ export default function ViewDocument() {
     }
     const range = sel.getRangeAt(0);
     const offsets = selectionToOffsets(
-      state.doc.content,
+      doc.content,
       range,
       contentRef.current
     );
@@ -73,12 +71,12 @@ export default function ViewDocument() {
 
   // Highlight logic: build spans around commented ranges
   function renderHighlightedContent() {
-    if (!state.doc) return null;
-    const text = state.doc.content;
-    if (state.comments.length === 0) {
+    if (!doc) return null;
+    const text = doc.content;
+    if (comments.length === 0) {
       return <pre>{text}</pre>;
     }
-    const sorted = [...state.comments].sort(
+    const sorted = [...comments].sort(
       (a, b) => a.startIndex - b.startIndex
     );
     const elements: JSX.Element[] = [];
@@ -153,7 +151,7 @@ export default function ViewDocument() {
         author: 'Reviewer',
       });
       const res = await listComments(id);
-      setState((prev) => ({ ...prev, comments: res }));
+      setComments(res);
       setSelection(null);
       enqueueSnackbar('Comment added', { variant: 'success' });
     } catch {
@@ -165,7 +163,7 @@ export default function ViewDocument() {
     try {
       await apiResolve(comment.id, role);
       const res = await listComments(id!);
-      setState((prev) => ({ ...prev, comments: res }));
+      setComments(res);
     } catch (err: any) {
       if (err?.response?.status === 403) {
         enqueueSnackbar('Not allowed to resolve', { variant: 'error' });
@@ -176,9 +174,8 @@ export default function ViewDocument() {
   };
 
   const addReply = (commentId: string, content: string) => {
-    setState((prev) => ({
-      ...prev,
-      comments: prev.comments.map((c) =>
+    setComments((prev) =>
+      prev.map((c) =>
         c.id === commentId
           ? {
               ...c,
@@ -193,17 +190,17 @@ export default function ViewDocument() {
               ],
             }
           : c,
-      ),
-    }));
+      )
+    );
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error || !state.doc) return <div>{error ?? 'Document not found'}</div>;
+  if (isLoading) return <div>Loading...</div>;
+  if (error || !doc) return <div>{error ?? 'Document not found'}</div>;
 
   return (
     <div style={{ display: 'flex', gap: '1rem' }}>
       <div style={{ flex: 1 }}>
-        <h2>{state.doc.title}</h2>
+        <h2>{doc.title}</h2>
         <Button onClick={() => setPanelOpen(true)}>Comments</Button>
         <Box
           ref={contentRef}
@@ -251,9 +248,9 @@ export default function ViewDocument() {
         <CommentsPanel
           open={panelOpen}
           onClose={() => setPanelOpen(false)}
-          comments={state.comments}
-          documentContent={state.doc.content}
-          documentVersion={state.doc.gitCommitHash}
+          comments={comments}
+          documentContent={doc.content}
+          documentVersion={doc.gitCommitHash}
           onReply={addReply}
           onResolve={resolveComment}
         />

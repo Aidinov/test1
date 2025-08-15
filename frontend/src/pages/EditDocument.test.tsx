@@ -1,11 +1,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SnackbarProvider } from 'notistack';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import EditDocument from './EditDocument';
 import { getDocument, updateDocument } from '../api/documents';
 import http from '../lib/http';
 import { DocumentDetails, DocumentSummary } from '../types';
+import { UserRoleProvider } from '../lib/UserRoleContext';
 
 vi.mock('../api/documents');
 vi.mock('../lib/http', () => ({
@@ -37,16 +40,27 @@ const baseDoc: DocumentDetails = {
 };
 
 function renderEdit() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false, refetchOnMount: false }
+    }
+  });
   return render(
-    <MemoryRouter initialEntries={['/documents/1/edit']}>
-      <Routes>
-        <Route path="/documents/:id/edit" element={<EditDocument />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      <SnackbarProvider>
+        <UserRoleProvider role="Reviewer">
+          <MemoryRouter initialEntries={['/documents/1/edit']}>
+            <Routes>
+              <Route path="/documents/:id/edit" element={<EditDocument />} />
+            </Routes>
+          </MemoryRouter>
+        </UserRoleProvider>
+      </SnackbarProvider>
+    </QueryClientProvider>
   );
 }
 
-describe.skip('EditDocument', () => {
+describe('EditDocument', () => {
   beforeEach(() => {
     mockGet.mockReset();
     mockUpdate.mockReset();
@@ -55,20 +69,20 @@ describe.skip('EditDocument', () => {
 
   it('loads content', async () => {
     mockGet.mockResolvedValue(baseDoc);
-    mockHttp.get.mockResolvedValue({ data: [] });
+    mockHttp.get.mockResolvedValueOnce({ data: ['Prod'] });
+    mockHttp.get.mockResolvedValueOnce({ data: ['Team'] });
     renderEdit();
-    expect(
-      await screen.findByText((_, node) => node?.textContent === 'Hello **world**')
-    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Doc')).toBeInTheDocument();
   });
 
   it('saves and shows new commit hash', async () => {
     mockGet.mockResolvedValue(baseDoc);
-    mockHttp.get.mockResolvedValue({ data: [] });
+    mockHttp.get.mockResolvedValueOnce({ data: ['Prod'] });
+    mockHttp.get.mockResolvedValueOnce({ data: ['Team'] });
     const updated: DocumentSummary = { ...baseDoc, gitCommitHash: 'def' };
     mockUpdate.mockResolvedValue(updated);
     renderEdit();
-    await screen.findByText((_, node) => node?.textContent === 'Hello **world**');
+    await screen.findByDisplayValue('Doc');
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
     expect(await screen.findByTestId('commit-hash')).toHaveTextContent('def');
@@ -76,10 +90,11 @@ describe.skip('EditDocument', () => {
 
   it('warns on unsaved changes', async () => {
     mockGet.mockResolvedValue(baseDoc);
-    mockHttp.get.mockResolvedValue({ data: [] });
+    mockHttp.get.mockResolvedValueOnce({ data: ['Prod'] });
+    mockHttp.get.mockResolvedValueOnce({ data: ['Team'] });
     renderEdit();
-    await screen.findByText((_, node) => node?.textContent === 'Hello **world**');
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'New' } });
+    const title = await screen.findByDisplayValue('Doc');
+    fireEvent.change(title, { target: { value: 'New' } });
     const ev = new Event('beforeunload');
     Object.defineProperty(ev, 'preventDefault', { value: vi.fn() });
     window.dispatchEvent(ev);

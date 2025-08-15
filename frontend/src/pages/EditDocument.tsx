@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import http from '../lib/http';
 import { DEFAULT_IFRAME_WHITELIST } from '../lib/markdown';
 import { getDocument, updateDocument } from '../api/documents';
@@ -47,10 +48,32 @@ export default function EditDocument() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  console.debug('[EditDocument render]', renderCount.current);
+
+  const docQuery = useQuery({
+    queryKey: ['document', id],
+    queryFn: () => {
+      console.debug('[EditDocument query document]', new Error().stack);
+      return getDocument(id!);
+    }
+  });
+  const productsQuery = useQuery({
+    queryKey: ['products'],
+    queryFn: () => http.get<string[]>('/products').then((r) => r.data)
+  });
+  const teamsQuery = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => http.get<string[]>('/teams').then((r) => r.data)
+  });
+
   const [doc, setDoc] = useState<DocumentDetails | null>(null);
   const [options, setOptions] = useState<OptionList>({ products: [], teams: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const loading = docQuery.isLoading || productsQuery.isLoading || teamsQuery.isLoading;
+  const error = docQuery.isError || productsQuery.isError || teamsQuery.isError
+    ? 'Failed to load document'
+    : null;
   const [dirty, setDirty] = useState(false);
   const [selection, setSelection] =
     useState<{ start: number; end: number } | null>(null);
@@ -62,24 +85,18 @@ export default function EditDocument() {
   const role = useUserRole();
   const [panelOpen, setPanelOpen] = useState(false);
 
+  const effectCount = useRef(0);
   useEffect(() => {
-    async function load() {
-      try {
-        const [docRes, productsRes, teamsRes] = await Promise.all([
-          getDocument(id!),
-          http.get<string[]>('/products'),
-          http.get<string[]>('/teams'),
-        ]);
-        setDoc(docRes);
-        setOptions({ products: productsRes.data, teams: teamsRes.data });
-      } catch (err) {
-        setError('Failed to load document');
-      } finally {
-        setLoading(false);
-      }
+    effectCount.current += 1;
+    console.debug('[EditDocument effect]', effectCount.current, new Error().stack);
+    if (docQuery.data) setDoc(docQuery.data);
+  }, [docQuery.data]);
+
+  useEffect(() => {
+    if (productsQuery.data && teamsQuery.data) {
+      setOptions({ products: productsQuery.data, teams: teamsQuery.data });
     }
-    if (id) load();
-  }, [id]);
+  }, [productsQuery.data, teamsQuery.data]);
 
   useUnsavedChangesGuard(dirty);
 
