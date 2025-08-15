@@ -1,0 +1,7 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CommentDialog > snapshots open/close and shows validation errors 1`] = `<DocumentFragment />`;
+
+exports[`CommentDialog > snapshots open/close and shows validation errors 2`] = `<DocumentFragment />`;
+
+exports[`CommentDialog > snapshots open/close and shows validation errors 3`] = `<DocumentFragment />`;

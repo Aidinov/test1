@@ -32,7 +32,7 @@ namespace DesignDocService.Tests.Documents
                 author = "Alice",
                 taskLink = "https://example.com/task/1",
                 content = "# Design Doc 1",
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = "/tmp/repo",
                 gitFilePath = "doc1.md",
                 gitCommitHash = "c1"
@@ -40,7 +40,7 @@ namespace DesignDocService.Tests.Documents
 
             var response = await _client.PostAsJsonAsync("/api/documents", docDto);
             response.EnsureSuccessStatusCode();
-            var created = await response.Content.ReadFromJsonAsync<DesignDocumentResponse>();
+            var created = await response.Content.ReadFromJsonAsync<DocumentSummary>();
             Assert.NotNull(created);
             Assert.Equal(docDto.title, created!.Title);
             Assert.Equal(docDto.product, created.Product);
@@ -72,7 +72,7 @@ namespace DesignDocService.Tests.Documents
                 author = "Tester",
                 taskLink = "",
                 content = "# Document content",
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = repoPath,
                 gitFilePath = "doc.md",
                 gitCommitHash = "commitNC"
@@ -81,12 +81,10 @@ namespace DesignDocService.Tests.Documents
             createRes.EnsureSuccessStatusCode();
 
             // Act: fetch all documents
-            var response = await _client.GetFromJsonAsync<List<DesignDocumentResponse>>("/api/documents");
+            var response = await _client.GetFromJsonAsync<List<DocumentSummary>>("/api/documents");
             Assert.NotNull(response);
-            // Assert: returned document has empty content (not loaded from Git when listing)
             var retrieved = response!.FirstOrDefault(d => d.Title == "NoContentDoc");
             Assert.NotNull(retrieved);
-            Assert.True(string.IsNullOrEmpty(retrieved!.Content));
         }
 
         [Fact]
@@ -104,18 +102,18 @@ namespace DesignDocService.Tests.Documents
                 author = "Tester",
                 taskLink = "",
                 content = content,
-                status = "InProgress",
+                status = "Draft",
                 gitRepository = repoPath,
                 gitFilePath = "gbidoc.md",
                 gitCommitHash = "hashGBI"
             };
             var createRes = await _client.PostAsJsonAsync("/api/documents", docDto);
             createRes.EnsureSuccessStatusCode();
-            var created = await createRes.Content.ReadFromJsonAsync<DesignDocumentResponse>();
+            var created = await createRes.Content.ReadFromJsonAsync<DocumentSummary>();
             Assert.NotNull(created);
 
             // Act: fetch by id
-            var fetch = await _client.GetFromJsonAsync<DesignDocumentResponse>($"/api/documents/{created!.Id}");
+            var fetch = await _client.GetFromJsonAsync<DocumentDetails>($"/api/documents/{created!.Id}");
             Assert.NotNull(fetch);
             // Assert: content loaded from Git
             Assert.Equal(content, fetch!.Content);
