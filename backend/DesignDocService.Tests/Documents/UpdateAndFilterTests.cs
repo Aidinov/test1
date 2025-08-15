@@ -168,6 +168,11 @@ namespace DesignDocService.Tests.Documents
                 var res = await _client.PostAsJsonAsync("/api/documents", dto);
                 res.EnsureSuccessStatusCode();
             }
+            // No filter
+            var noFilter = await _client.GetFromJsonAsync<List<DesignDocumentResponse>>("/api/documents");
+            Assert.NotNull(noFilter);
+            Assert.Equal(3, noFilter.Count);
+            
             // Filter by team T1
             var byTeam = await _client.GetFromJsonAsync<List<DesignDocumentResponse>>("/api/documents?team=T1");
             Assert.NotNull(byTeam);

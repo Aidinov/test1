@@ -18,12 +18,12 @@ namespace DesignDocService.Endpoints
             var group = app.MapGroup("/api/documents");
 
             // List all documents or filter by optional query parameters
-            group.MapGet("", async (DesignDocumentService service, IGitService gitService, string? team, string? product, string? author) =>
+            group.MapGet("", async (DesignDocumentService service, [AsParameters] DesignDocumentQuery query) =>
             {
                 List<DesignDocument> entities;
-                if (!string.IsNullOrEmpty(team) || !string.IsNullOrEmpty(product) || !string.IsNullOrEmpty(author))
+                if (!string.IsNullOrEmpty(query.Team) || !string.IsNullOrEmpty(query.Product) || !string.IsNullOrEmpty(query.Author))
                 {
-                    entities = await service.GetFilteredAsync(team, product, author);
+                    entities = await service.GetFilteredAsync(query.Team, query.Product, query.Author);
                 }
                 else
                 {
