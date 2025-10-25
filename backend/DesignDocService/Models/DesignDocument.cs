@@ -55,7 +55,7 @@ namespace DesignDocService.Models
         /// <summary>
         /// Current status of the document.
         /// </summary>
-        public DocumentStatus Status { get; set; } = DocumentStatus.InProgress;
+        public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
         /// <summary>
         /// Creation timestamp in UTC.
